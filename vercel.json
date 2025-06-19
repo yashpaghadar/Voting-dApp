@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "routes": [
+    {
+      "src": "/vote",
+      "dest": "/index.html",
+      "status": 200
+    },
+    {
+      "src": "/vote/.*",
+      "dest": "/index.html",
+      "status": 200
+    }
+  ],
+  "env": {
+    "VITE_VOTING_CONTRACT_ADDRESS": "0x44322145F83815D54045A61f13e477b1948554dE",
+    "VITE_HELLO_TOKEN_ADDRESS": "0xDd699d82b9A85cdF08D3196D98a2130e7118ddbb",
+    "VITE_ALCHEMY_API_KEY": "IH_QSnCDUmK41vB4MwXD5"
+  },
+  "build": {
+    "env": {
+      "VITE_VOTING_CONTRACT_ADDRESS": "0x44322145F83815D54045A61f13e477b1948554dE",
+      "VITE_HELLO_TOKEN_ADDRESS": "0xDd699d82b9A85cdF08D3196D98a2130e7118ddbb",
+      "VITE_ALCHEMY_API_KEY": "IH_QSnCDUmK41vB4MwXD5"
+    }
+  }
+}

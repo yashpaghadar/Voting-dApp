@@ -1,0 +1,88 @@
+.welcome-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  padding: 2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  width: var(--size);
+  height: var(--size);
+  background: radial-gradient(circle, #3b82f6, #1d4ed8);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  will-change: transform;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+
+.vite-logo {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 2rem;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+  z-index: 1;
+}
+
+.welcome-title {
+  font-size: 2.5rem;
+  color: #1d4ed8;
+  margin-bottom: 1rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.welcome-subtitle {
+  font-size: 1.5rem;
+  color: #374151;
+  max-width: 100%;
+  margin-bottom: 2rem;
+  z-index: 1;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.welcome-cta {
+  margin-top: 2rem;
+  font-size: 1.2rem;
+  color: #4b5563;
+}
+
+.progress-container {
+  width: 300px;
+  height: 6px;
+  background: rgba(29, 78, 216, 0.1);
+  border-radius: 3px;
+  margin-top: 2rem;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #1d4ed8, #3b82f6, #93c5fd);
+  border-radius: 3px;
+  transition: width 5s linear, opacity 0.5s ease;
+}
+
+.pulse-circle {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.2), transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
