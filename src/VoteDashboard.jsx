@@ -831,7 +831,16 @@ const VoteDashboard = () => {
                 className="create-btn"
               >
                 {isCreatingProposal ? <FaSpinner className="animate-spin mr-1" /> : null}
-                {isCreatingProposal ? 'Creating...' : 'Create Proposal'}
+               {isCreatingProposal && (
+              <div className="tx-loading-overlay">
+                <div className="tx-loading-content">
+                  <div className="loading-spinner"></div>
+                  <p>Processing Transaction...</p>
+                  <small>Please confirm in MetaMask</small>
+                </div>
+              </div>
+              )} 
+              {isCreatingProposal ? 'Creating...' : 'Create Proposal'}
               </button>
               
               <button 
