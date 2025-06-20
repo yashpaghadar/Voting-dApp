@@ -593,7 +593,13 @@ const VoteDashboard = () => {
                 >
                   {isConnectingWallet ? (
                     <>
-                      <div className="loading-spinner"></div>
+                        <div className="tx-loading-overlay">
+                          <div className="tx-loading-content">
+                            <FaSpinner className="animate-spin" size={48} />
+                            <p>Processing Transaction...</p>
+                            <small>Please confirm in MetaMask</small>
+                          </div>
+                        </div>
                       Connecting...
                     </>
                   ) : 'Connect MetaMask'}
@@ -832,7 +838,6 @@ const VoteDashboard = () => {
                 disabled={isCreatingProposal}
                 className="create-btn"
               >
-                {isCreatingProposal ? <FaSpinner className="animate-spin mr-1" /> : null}
                {isCreatingProposal && (
               <div className="tx-loading-overlay">
                 <div className="tx-loading-content">
