@@ -325,6 +325,30 @@ body,html {
   font-size: 0.875rem;
 }
 
+.tx-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+.tx-loading-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.tx-loading-content p {
+  margin-top: 1rem;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
 /* Proposals Table */
 .proposals-table {
   background: white;
@@ -386,27 +410,42 @@ table tr:last-child td {
 
 /* Loading Spinner */
 .loading-spinner {
-  padding: 2rem;
-  text-align: center;
-}
-
-.spinner {
-  animation: spin 1s linear infinite;
+  width: 48px;
+  height: 48px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #3498db;
   border-radius: 50%;
-  border: 2px solid #3b82f6;
-  border-top-color: transparent;
-  height: 3rem;
-  width: 3rem;
+  animation: spin 1s linear infinite;
   margin: 0 auto;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-.loading-text {
+.simple-loading {
+  text-align: center;
+  padding: 1rem;
+}
+
+.simple-loading p {
   margin-top: 0.5rem;
   color: #6b7280;
+}
+
+.loading-container,
+.loading-text {
+  display: none;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  gap: 1rem; 
 }
 
 /* Empty State */
@@ -574,25 +613,35 @@ table tr:last-child td {
 
 /* Error Notification */
 .notification-error {
+  background-color: #d32f2f; /* Darker red */
+  color: white; /* White text */
+  padding: 12px 20px;
+  border-radius: 4px;
+  box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+  font-weight: 500;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   position: fixed;
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: #ffebee;
-  color: #c62828;
-  padding: 12px 24px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
   z-index: 1000;
-  border-left: 4px solid #c62828;
+  animation: fadeIn 0.3s ease-in-out;
+  min-width: 300px; 
+  text-align: center;
 }
 
-.notification-error-icon {
-  font-size: 18px;
-  color: #c62828;
+.notification-error .notification-icon {
+  font-size: 20px;
+}
+
+.disabled-btn {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #cccccc !important;
 }
 
 /* Wallet Notification - Orange theme */

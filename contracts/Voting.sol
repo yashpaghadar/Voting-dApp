@@ -18,7 +18,7 @@ contract Voting {
     IERC20 public helloToken;
     uint256 public proposalCount;
     mapping(uint256 => Proposal) private proposals;
-    uint256 public constant VOTING_PERIOD = 5 days; // 24 hours
+    uint256 public constant VOTING_PERIOD = 5 days; // 120 hours
     address public owner;
     uint256 public constant PROPOSAL_FEE = 25 ether; // 25 HLTK (18 decimals)
     uint256 public constant VOTE_FEE = 10 ether; // 10 HLTK (18 decimals)

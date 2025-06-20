@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 async function main() {
-  const helloTokenAddress = process.env.HELLO_TOKEN_ADDRESS;
+  const helloTokenAddress = process.env.VITE_HELLO_TOKEN_ADDRESS;
   if (!helloTokenAddress) {
     throw new Error("Please set HELLO_TOKEN_ADDRESS in your .env file");
   }

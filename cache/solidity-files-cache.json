@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "E:\\Yash\\SEM - 5\\Internship - II\\Programs\\voting-app\\contracts\\Voting.sol": {
-      "lastModificationDate": 1750335298602,
-      "contentHash": "040a7918241b808c3e704aaabfae9eb7",
+      "lastModificationDate": 1750400602237,
+      "contentHash": "3137853c7f16b2922bdcab57307fff68",
       "sourceName": "contracts/Voting.sol",
       "solcConfig": {
         "version": "0.8.20",

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import votingAbi from './abi/Voting.json';
-import { FaVoteYea, FaInfoCircle, FaExclamationTriangle, FaCheck, FaClock, FaTimes} from 'react-icons/fa';
+import { FaVoteYea, FaInfoCircle, FaExclamationTriangle, FaCheck, FaClock, FaTimes, FaSpinner} from 'react-icons/fa';
 import './VoteDashboard.css';
 
 const VOTING_CONTRACT_ADDRESS = import.meta.env.VITE_VOTING_CONTRACT_ADDRESS;
@@ -72,17 +72,33 @@ const VoteDashboard = () => {
   const [showRemoveForm, setShowRemoveForm] = useState(false);
   const [removeProposalName, setRemoveProposalName] = useState('');
   const [votedProposals, setVotedProposals] = useState(new Set());
+  const [connectionRequested, setConnectionRequested] = useState(false);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [isVotingLoading, setIsVotingLoading] = useState(false);
+  const [isCreatingProposal, setIsCreatingProposal] = useState(false);
+  const [isTxPending, setIsTxPending] = useState(false);
+  const [isConnectingWallet, setIsConnectingWallet] = useState(false);
 
   const handleError = (error, title) => {
-    setNotification({
-      show: true,
-      title,
-      description: error?.message.includes('not a function')
-        ? '!! Something went wrong !!'
-        : error?.reason || error?.message || 'Unknown error',
-      isError: true,
-      type: 'error'
-    });
+    if (error.code === 4001) {
+      setNotification({
+        show: true,
+        title: 'Transaction Rejected',
+        description: 'User rejected the transaction',
+        isError: true,
+        type: 'error'
+      });
+    } else {
+      setNotification({
+        show: true,
+        title,
+        description: error?.message.includes('not a function')
+          ? '!! Something went wrong !!'
+          : error?.reason || error?.message || 'Unknown error',
+        isError: true,
+        type: 'error'
+      });
+    }
     setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 5000);
     console.error(title, error);
   };
@@ -97,44 +113,81 @@ const VoteDashboard = () => {
 
   useEffect(() => {
     const init = async () => {
-      if (window.ethereum) {
-        const _provider = new ethers.providers.Web3Provider(window.ethereum);
-        setProvider(_provider);
-        const _signer = await _provider.getSigner();
-        setSigner(_signer);
-        const addr = await _signer.getAddress();
-        setAccount(addr);
-        const _voting = new ethers.Contract(
-          VOTING_CONTRACT_ADDRESS,
-          votingAbi,
-          _signer
-        );
-        setVoting(_voting);
-        const _owner = await _voting.owner();
-        setOwner(_owner);
-        console.log('Connected account:', addr);
-        console.log('Contract owner:', _owner);
-        console.log('Is owner?', addr.toLowerCase() === _owner.toLowerCase());
+      if (window.ethereum && !connectionRequested) {
+        setIsConnectingWallet(true);
+        setConnectionRequested(true);
         
-        // Add token allowance check
         try {
-          const tokenContract = new ethers.Contract(
-            HELLO_TOKEN_ADDRESS,
-            [
-              'function allowance(address owner, address spender) external view returns (uint256)'
-            ],
-            _signer
-          );
-          const allowance = await tokenContract.allowance(addr, VOTING_CONTRACT_ADDRESS);
-          setNeedsApproval(allowance.lt(ethers.utils.parseEther(VOTE_FEE.toString())));
+          const _provider = new ethers.providers.Web3Provider(window.ethereum);
+          setProvider(_provider);
+          
+          try {
+            const accounts = await window.ethereum.request({ 
+              method: 'eth_requestAccounts'
+            }).finally(() => {
+              setConnectionRequested(false);
+              setIsConnectingWallet(false);
+            });
+            
+            if (!accounts) return;
+            
+            const _signer = await _provider.getSigner();
+            setSigner(_signer);
+            const addr = await _signer.getAddress();
+            setAccount(addr);
+            const _voting = new ethers.Contract(
+              VOTING_CONTRACT_ADDRESS,
+              votingAbi,
+              _signer
+            );
+            setVoting(_voting);
+            const _owner = await _voting.owner();
+            setOwner(_owner);
+            console.log('Connected account:', addr);
+            console.log('Contract owner:', _owner);
+            
+            // Add token allowance check
+            try {
+              const tokenContract = new ethers.Contract(
+                HELLO_TOKEN_ADDRESS,
+                [
+                  'function allowance(address owner, address spender) external view returns (uint256)'
+                ],
+                _signer
+              );
+              const allowance = await tokenContract.allowance(addr, VOTING_CONTRACT_ADDRESS);
+              setNeedsApproval(allowance.lt(ethers.utils.parseEther(VOTE_FEE.toString())));
+            } catch (error) {
+              console.error('Error checking token allowance:', error);
+              setNeedsApproval(true);
+            }
+            
+            await fetchProposals(_voting);
+            debugContractMethods(_voting); // Pass the contract instance
+          } catch (error) {
+            setConnectionRequested(false);
+            setIsConnectingWallet(false);
+            if (error.code === 4001) {
+              const newNotif = {
+                show: true,
+                title: 'Connection Rejected',
+                description: 'Please approve the connection to continue',
+                isError: true,
+                type: 'wallet',
+                key: Date.now()
+              };
+              setNotification(newNotif);
+              setTimeout(() => setNotification({ show: false }), 5000);
+            } else {
+              handleError('Connecting to MetaMask Failed');
+            }
+          }
         } catch (error) {
-          console.error('Error checking token allowance:', error);
-          setNeedsApproval(true);
+          setConnectionRequested(false);
+          setIsConnectingWallet(false);
+          handleError('Initialization Error');
         }
-        
-        await fetchProposals(_voting);
-        debugContractMethods(_voting); // Pass the contract instance
-      } else {
+      } else if (!window.ethereum) {
         setNotification({
           show: true,
           title: 'Metamask is Not Connected',
@@ -200,20 +253,21 @@ const VoteDashboard = () => {
   };
 
   const handleVote = async (displayId) => {
-    // First check if already voted in frontend state
-    if (votedProposals.size > 0) {
-      setNotification({
-        show: true,
-        title: 'Already Voted',
-        description: 'You have already voted in this session',
-        isError: true,
-        type: 'error'
-      });
-      setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000);
-      return;
-    }
-
     try {
+      setIsTxPending(true);
+      if (votedProposals.size > 0) {
+        setNotification({
+          show: true,
+          title: 'Already Voted',
+          description: 'You have already voted in this session',
+          isError: true,
+          type: 'error' // Changed to error type
+        });
+        setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000);
+        return;
+      }
+      
+      setIsVotingLoading(true);
       setTxStatus('Voting...');
       
       // Check token approval
@@ -227,7 +281,7 @@ const VoteDashboard = () => {
       await tx.wait();
       
       // Refresh data from contract
-      await fetchProposals(voting);
+      await fetchProposals();
       
       // Update frontend state
       const allProposalIds = proposals.map(p => p.id);
@@ -241,16 +295,32 @@ const VoteDashboard = () => {
         type: 'default'
       });
       setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000);
+      
+      setHasVoted(true);
     } catch (error) {
-      if (error.message.includes('Already voted') || error.reason?.includes('Already voted')) {
-        // Sync frontend state with contract
+      if (error.message.includes('Already voted') || 
+          error.reason?.includes('Already voted') ||
+          error?.data?.message?.includes('Already voted')) {
+        
+        setNotification({
+          show: true,
+          title: 'Already Voted',
+          description: 'You can only vote once per proposal',
+          isError: true, // Changed to true for red color
+          type: 'error', // Changed to error type
+          key: Date.now()
+        });
+        setTimeout(() => setNotification({ show: false }), 5000);
+        
+        // Sync voting state
         const allProposalIds = proposals.map(p => p.id);
         setVotedProposals(new Set(allProposalIds));
-        handleError(new Error('You have already voted on this proposal'), 'You have already voted on this proposal');
       } else {
         handleError(error, 'Voting failed');
       }
     } finally {
+      setIsVotingLoading(false);
+      setIsTxPending(false);
       setTxStatus('');
     }
   };
@@ -266,6 +336,7 @@ const VoteDashboard = () => {
     setTxStatus("Removing proposal...");
     
     try {
+      setIsTxPending(true);
       if (!voting) throw new Error("Voting contract not loaded");
       
       const tx = await voting.removeProposalByName(removeProposalName);
@@ -284,6 +355,7 @@ const VoteDashboard = () => {
     } catch (err) {
       handleError(err, 'Failed to remove proposal');
     } finally {
+      setIsTxPending(false);
       setRemoving(false);
     }
   };
@@ -291,6 +363,7 @@ const VoteDashboard = () => {
   const handleCloseProposal = async (displayId) => {
     setTxStatus("Closing...");
     try {
+      setIsTxPending(true);
       if (!voting) throw new Error("Voting contract not loaded.");
       // Find the original ID using the display ID
       const proposal = proposals.find(p => p.id === displayId);
@@ -305,6 +378,8 @@ const VoteDashboard = () => {
       handleError(e, 'Closing failed');
       setTimeout(() => setNotification({ show: false }), 5000);
       console.error("Close proposal error:", e);
+    } finally {
+      setIsTxPending(false);
     }
   };
 
@@ -319,9 +394,9 @@ const VoteDashboard = () => {
       return;
     }
     
-    setCreating(true);
-    
     try {
+      setIsTxPending(true);
+      setIsCreatingProposal(true);
       // Check token balance first
       const tokenContract = new ethers.Contract(
         HELLO_TOKEN_ADDRESS,
@@ -358,7 +433,8 @@ const VoteDashboard = () => {
     } catch (error) {
       handleError(error, 'Create proposal error');
     } finally {
-      setCreating(false);
+      setIsTxPending(false);
+      setIsCreatingProposal(false);
       setTxStatus('');
     }
   };
@@ -384,6 +460,7 @@ const VoteDashboard = () => {
     setTxStatus({ message: 'Approving HLTK tokens...', isError: false });
     
     try {
+      setIsTxPending(true);
       const tokenContract = new ethers.Contract(
         HELLO_TOKEN_ADDRESS,
         ['function approve(address,uint256)'],
@@ -403,6 +480,7 @@ const VoteDashboard = () => {
       setNotification('Approval failed', error.reason || error.message || 'Unknown error', true);
       setTimeout(() => setNotification({ show: false }), 5000);
     } finally {
+      setIsTxPending(false);
       setApproving(false);
     }
   };
@@ -441,7 +519,7 @@ const VoteDashboard = () => {
         <div className="notification-wallet">
           <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
             <FaInfoCircle className="notification-wallet-icon" />
-            <span style={{fontWeight: 'bold'}}>Connect your wallet</span>
+            <span style={{fontWeight: 'bold'}}>Connect Your Wallet</span>
           </div>
           <span>{notification.description}</span>
         </div>
@@ -449,10 +527,13 @@ const VoteDashboard = () => {
       {notification.show && notification.type !== 'wallet' && (
         <div className={
           notification.type === 'error' ? "notification-error" :
+          notification.type === 'info' ? "notification-info" :
           "notification-success"
         }>
           {notification.type === 'error' ? (
             <FaExclamationTriangle className="notification-error-icon" />
+          ) : notification.type === 'info' ? (
+            <FaInfoCircle className="notification-info-icon" />
           ) : (
             <FaCheck className="notification-icon" />
           )}
@@ -460,6 +541,7 @@ const VoteDashboard = () => {
           <p>{notification.description}</p>
         </div>
       )}
+      
       <div className="dashboard-header">
         <h1 className="dashboard-title">
           <FaVoteYea className="dashboard-title-icon" />
@@ -476,7 +558,7 @@ const VoteDashboard = () => {
               <FaExclamationTriangle className="h-5 w-5 text-yellow-400" />
             </div>
             <div className="ml-3">
-              <h2 className="text-sm font-medium text-yellow-800">|| Connect your wallet ||</h2>
+              <h2 className="text-sm font-medium text-yellow-800">|| Connect Your Wallet ||</h2>
               <div className="mt-2 text-sm text-yellow-700">
                 <p>You need to connect your wallet to interact with the voting system.</p>
                 <button
@@ -507,7 +589,12 @@ const VoteDashboard = () => {
                   }}
                   className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
                 >
-                  Connect MetaMask
+                  {isConnectingWallet ? (
+                    <>
+                      <div className="loading-spinner"></div>
+                      Connecting...
+                    </>
+                  ) : 'Connect MetaMask'}
                 </button>
               </div>
             </div>
@@ -529,30 +616,14 @@ const VoteDashboard = () => {
                 setSigner(null);
                 setVoting(null);
               }}
-              className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
               Disconnect
             </button>
           </div>
         </div>
       )}
-      {/* Transaction Status */}
-      {txStatus && (
-        <div className={`tx-status ${txStatus.isError ? 'error' : 'success'}`}>
-          <div className="tx-status-content">
-            <div className="tx-status-icon">
-              {txStatus.isError ? (
-                <FaExclamationTriangle className="h-5 w-5" />
-              ) : (
-                <FaCheck className="h-5 w-5" />
-              )}
-            </div>
-            <div className="tx-status-message">
-              <p>{txStatus.message}</p>
-            </div>
-          </div>
-        </div>
-      )}
+ 
       {/* How It Works */}
       <div className="info-card">
         <div className="info-header">
@@ -621,9 +692,9 @@ const VoteDashboard = () => {
         </div>
         
         {loading ? (
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-            <p className="loading-text">Loading Proposals...</p>
+          <div className="simple-loading">
+            <div className="loading-spinner"></div>
+            <p>Loading Proposals...</p>
           </div>
         ) : proposals.length === 0 ? (
           <div className="empty-state">
@@ -675,12 +746,13 @@ const VoteDashboard = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
                           {account && isOpen && !votedProposals.has(p.id) && !p.removed && (
-                            <button
+                            <button 
                               onClick={() => handleVote(p.id)}
-                              className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500`}
+                              disabled={hasVoted || votedProposals.has(p.id) || isVotingLoading}
+                              className={`vote-btn ${hasVoted ? 'disabled-btn' : ''}`}
                             >
-                              <FaVoteYea className="mr-1" />
-                              Vote
+                              {isVotingLoading ? <FaSpinner className="animate-spin mr-1" /> : <FaVoteYea className="mr-1" />}
+                              {isVotingLoading ? 'Processing...' : 'Vote'}
                             </button>
                           )}
                           
@@ -755,10 +827,11 @@ const VoteDashboard = () => {
             <div className="proposal-buttons">
               <button 
                 type="submit" 
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                disabled={creating}
+                disabled={isCreatingProposal}
+                className="create-btn"
               >
-                {creating ? 'Submitting...' : 'Submit Proposal'}
+                {isCreatingProposal ? <FaSpinner className="animate-spin mr-1" /> : null}
+                {isCreatingProposal ? 'Creating...' : 'Create Proposal'}
               </button>
               
               <button 
@@ -839,6 +912,15 @@ const VoteDashboard = () => {
           )}
         </div>
       </div>
+      {isTxPending && (
+        <div className="tx-loading-overlay">
+          <div className="tx-loading-content">
+            <div className="loading-spinner"></div>
+            <p>Processing Transaction...</p>
+            <small>Please confirm in MetaMask</small>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
