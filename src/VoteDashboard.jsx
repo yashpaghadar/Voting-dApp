@@ -872,7 +872,7 @@ const VoteDashboard = () => {
                 className="proposal-input"
                 required
               />
-             <div className="proposal-buttons">
+            
                 <button 
                 type="submit" 
                 disabled={removing}
@@ -880,7 +880,7 @@ const VoteDashboard = () => {
               >
                 {removing ? 'Removing...' : 'Remove Proposal'}
               </button>
-            </div>
+  
           </form>
         </div>
       )}
