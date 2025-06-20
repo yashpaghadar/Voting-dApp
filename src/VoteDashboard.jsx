@@ -263,7 +263,7 @@ const VoteDashboard = () => {
           isError: true,
           type: 'error' // Changed to error type
         });
-        setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000);
+        setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 5000);
         return;
       }
       
@@ -294,7 +294,7 @@ const VoteDashboard = () => {
         isError: false,
         type: 'default'
       });
-      setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000);
+      setTimeout(() => setNotification({ show: false }), 5000);
       
       setHasVoted(true);
     } catch (error) {
@@ -348,6 +348,7 @@ const VoteDashboard = () => {
         description: `Proposal "${removeProposalName}" removed successfully`,
         isError: false
       });
+      setTimeout(() => setNotification({ show: false }), 5000);
       
       setShowRemoveForm(false);
       setRemoveProposalName('');
@@ -427,6 +428,7 @@ const VoteDashboard = () => {
         isError: false,
         type: 'default'
       });
+      setTimeout(() => setNotification({ show: false }), 5000);
       setNewProposal('');
       setShowInput(false);
       await fetchProposals(voting);
