@@ -593,6 +593,7 @@ const VoteDashboard = () => {
                 >
                   {isConnectingWallet ? (
                     <>
+                      {isConnectingWallet && (
                         <div className="tx-loading-overlay">
                           <div className="tx-loading-content">
                             <FaSpinner className="animate-spin" size={48} />
@@ -600,6 +601,7 @@ const VoteDashboard = () => {
                             <small>Please confirm in MetaMask</small>
                           </div>
                         </div>
+                      )}
                       Connecting...
                     </>
                   ) : 'Connect MetaMask'}
