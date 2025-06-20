@@ -872,20 +872,21 @@ const VoteDashboard = () => {
                 className="proposal-input"
                 required
               />
-            <button 
-              type="submit" 
-              disabled={removing}
-              className="submit-btn"
-            >
-              {removing ? 'Removing...' : 'Remove Proposal'}
-            </button>
-             <button 
-                type="button" 
-                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                onClick={() => setShowInput(false)}
+             <div className="proposal-buttons">
+                <button 
+                type="submit" 
+                disabled={removing}
+                className="submit-btn"
               >
-                Cancel
+                {removing ? 'Removing...' : 'Remove Proposal'}
               </button>
+               <button 
+                  type="button" 
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  onClick={() => setShowInput(false)}
+                > Cancel
+              </button>
+             </div>
           </form>
         </div>
       )}
