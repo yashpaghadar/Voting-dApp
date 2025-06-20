@@ -544,6 +544,16 @@ const VoteDashboard = () => {
         </div>
       )}
       
+      {isConnectingWallet && (
+        <div className="wallet-connecting-overlay">
+          <div className="wallet-connecting-content">
+            <FaSpinner className="animate-spin" size={48} />
+            <p>Connecting to MetaMask...</p>
+            <small>Please approve the connection in your wallet</small>
+          </div>
+        </div>
+      )}
+      
       <div className="dashboard-header">
         <h1 className="dashboard-title">
           <FaVoteYea className="dashboard-title-icon" />
@@ -591,20 +601,7 @@ const VoteDashboard = () => {
                   }}
                   className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
                 >
-                  {isConnectingWallet ? (
-                    <>
-                      {isConnectingWallet && (
-                        <div className="tx-loading-overlay">
-                          <div className="tx-loading-content">
-                            <FaSpinner className="animate-spin" size={48} />
-                            <p>Processing Transaction...</p>
-                            <small>Please confirm in MetaMask</small>
-                          </div>
-                        </div>
-                      )}
-                      Connecting...
-                    </>
-                  ) : 'Connect MetaMask'}
+                  {isConnectingWallet ? 'Connecting...' : 'Connect MetaMask'}
                 </button>
               </div>
             </div>
