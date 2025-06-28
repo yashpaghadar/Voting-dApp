@@ -1,17 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import votingAbi from './abi/Voting.json';
-import { FaVoteYea, FaInfoCircle, FaExclamationTriangle, FaCheck, FaClock, FaTimes, FaSpinner} from 'react-icons/fa';
+import votingAbiString from './abi/Voting.json';
+import { FaVoteYea, FaInfoCircle, FaExclamationTriangle, FaCheck, FaClock, FaTimes, FaSpinner, FaChartBar, FaWallet, FaImage } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 import './VoteDashboard.css';
+import './ProposalModal.css';
+import { getEthersProvider, parseEther, parseContractAbi, formatBigNumber } from './utils/ethersHelpers';
+import VotingResultsChart from './VotingResultsChart';
+import NFTModal from './components/NFTModal';
+import Loading from './Loading';
+
+const votingAbi = parseContractAbi(votingAbiString);
+
+const ethersVersion = window.ethers ? 'v5' : 'v6';
+console.log(`Using ethers.js ${ethersVersion}`);
 
 const VOTING_CONTRACT_ADDRESS = import.meta.env.VITE_VOTING_CONTRACT_ADDRESS;
-const HELLO_TOKEN_ADDRESS = import.meta.env.VITE_HELLO_TOKEN_ADDRESS;
+const VOTE_TOKEN_ADDRESS = import.meta.env.VITE_VOTE_TOKEN_ADDRESS;
+const OWNER_ADDRESS = import.meta.env.VITE_OWNER_ADDRESS;
 
-if (!VOTING_CONTRACT_ADDRESS || !HELLO_TOKEN_ADDRESS) {
+if (!VOTING_CONTRACT_ADDRESS || !VOTE_TOKEN_ADDRESS || !OWNER_ADDRESS) {
   console.error("Missing required environment variables for contract addresses");
   console.log("Current environment:", import.meta.env);
 }
-const HLTK_DECIMALS = 18;
+const VOTE_TOKEN_DECIMALS = 18;
 const PROPOSAL_FEE = 25;
 const VOTE_FEE = 10;
 
@@ -49,14 +61,17 @@ const StatusBadge = ({ status }) => {
 };
 
 const VoteDashboard = () => {
+  // ...existing state hooks...
+  const [isProposalLoading, setIsProposalLoading] = useState(false);
   const [showInput, setShowInput] = useState(false);
   const [notification, setNotification] = useState({ 
     show: false, 
     title: '',
     description: '',
     isError: false,
-    type: 'default' // 'default', 'error', 'wallet'
+    type: 'default' // 'default', 'error', 'wallet', 'info'
   });
+
   const [provider, setProvider] = useState();
   const [signer, setSigner] = useState();
   const [voting, setVoting] = useState();
@@ -75,32 +90,44 @@ const VoteDashboard = () => {
   const [connectionRequested, setConnectionRequested] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
   const [isVotingLoading, setIsVotingLoading] = useState(false);
-  const [isCreatingProposal, setIsCreatingProposal] = useState(false);
   const [isTxPending, setIsTxPending] = useState(false);
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+  const [isCreatingProposal, setIsCreatingProposal] = useState(false);
+  const [showProposalModal, setShowProposalModal] = useState(false);
+  const [proposalList, setProposalList] = useState([]);
+  const [loadingProposals, setLoadingProposals] = useState(false);
+  const [error, setError] = useState('');
+  const [notificationTimeout, setNotificationTimeout] = useState(null);
+  const [showNFTModal, setShowNFTModal] = useState(false);
+  const [lastTransactionHash, setLastTransactionHash] = useState('');
 
-  const handleError = (error, title) => {
-    if (error.code === 4001) {
-      setNotification({
-        show: true,
-        title: 'Transaction Rejected',
-        description: 'User rejected the transaction',
-        isError: true,
-        type: 'error'
-      });
-    } else {
-      setNotification({
-        show: true,
-        title,
-        description: error?.message.includes('not a function')
-          ? '!! Something went wrong !!'
-          : error?.reason || error?.message || 'Unknown error',
-        isError: true,
-        type: 'error'
-      });
+  // Auto-hide notification after 5 seconds
+  useEffect(() => {
+    if (notification.show) {
+      // Clear any existing timeout
+      if (notificationTimeout) {
+        clearTimeout(notificationTimeout);
+      }
+      
+      // Set new timeout
+      const timeoutId = setTimeout(() => {
+        setNotification(prev => ({ ...prev, show: false }));
+      }, 5000);
+      
+      setNotificationTimeout(timeoutId);
+      
+      // Cleanup function
+      return () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
     }
-    setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 5000);
-    console.error(title, error);
+  }, [notification.show]);
+
+  const handleError = (error, context) => {
+    console.error(context, error);
+    setError(`${context}: ${error.message}`);
   };
 
   // Update current time every second for the countdown
@@ -113,94 +140,67 @@ const VoteDashboard = () => {
 
   useEffect(() => {
     const init = async () => {
-      if (window.ethereum && !connectionRequested) {
-        setIsConnectingWallet(true);
-        setConnectionRequested(true);
-        
-        try {
-          const _provider = new ethers.providers.Web3Provider(window.ethereum);
-          setProvider(_provider);
-          
-          try {
-            const accounts = await window.ethereum.request({ 
-              method: 'eth_requestAccounts'
-            }).finally(() => {
-              setConnectionRequested(false);
-              setIsConnectingWallet(false);
-            });
-            
-            if (!accounts) return;
-            
-            const _signer = await _provider.getSigner();
-            setSigner(_signer);
-            const addr = await _signer.getAddress();
-            setAccount(addr);
-            const _voting = new ethers.Contract(
-              VOTING_CONTRACT_ADDRESS,
-              votingAbi,
-              _signer
-            );
-            setVoting(_voting);
-            const _owner = await _voting.owner();
-            setOwner(_owner);
-            console.log('Connected account:', addr);
-            console.log('Contract owner:', _owner);
-            
-            // Add token allowance check
-            try {
-              const tokenContract = new ethers.Contract(
-                HELLO_TOKEN_ADDRESS,
-                [
-                  'function allowance(address owner, address spender) external view returns (uint256)'
-                ],
-                _signer
-              );
-              const allowance = await tokenContract.allowance(addr, VOTING_CONTRACT_ADDRESS);
-              setNeedsApproval(allowance.lt(ethers.utils.parseEther(VOTE_FEE.toString())));
-            } catch (error) {
-              console.error('Error checking token allowance:', error);
-              setNeedsApproval(true);
-            }
-            
-            await fetchProposals(_voting);
-            debugContractMethods(_voting); // Pass the contract instance
-          } catch (error) {
-            setConnectionRequested(false);
-            setIsConnectingWallet(false);
-            if (error.code === 4001) {
-              const newNotif = {
-                show: true,
-                title: 'Connection Rejected',
-                description: 'Please approve the connection to continue',
-                isError: true,
-                type: 'wallet',
-                key: Date.now()
-              };
-              setNotification(newNotif);
-              setTimeout(() => setNotification({ show: false }), 5000);
-            } else {
-              handleError('Connecting to MetaMask Failed');
-            }
-          }
-        } catch (error) {
-          setConnectionRequested(false);
-          setIsConnectingWallet(false);
-          handleError('Initialization Error');
+      try {
+        if (!window.ethereum) {
+          setNotification({
+            show: true,
+            title: 'MetaMask Not Found',
+            description: 'Please install MetaMask to use this application',
+            isError: true,
+            type: 'wallet'
+          });
+          setLoading(false);
+          return;
         }
-      } else if (!window.ethereum) {
-        setNotification({
-          show: true,
-          title: 'Metamask is Not Connected',
-          description: 'Please connect your wallet to interact with the voting system',
-          isError: false,
-          type: 'wallet'
-        });
-        setTimeout(() => setNotification({ show: false }), 5000);
+        
+        const provider = await getEthersProvider(ethers);
+        const accounts = await provider.send('eth_requestAccounts', []);
+        
+        if (!accounts || accounts.length === 0) {
+          throw new Error('No accounts found');
+        }
+        
+        const signer = await provider.getSigner();
+        const voting = new ethers.Contract(VOTING_CONTRACT_ADDRESS, votingAbi, signer);
+        
+        setProvider(provider);
+        setSigner(signer);
+        setVoting(voting);
+        setAccount(accounts[0]);
+        
+        // Add token allowance check
+        try {
+          const tokenContract = new ethers.Contract(
+            VOTE_TOKEN_ADDRESS,
+            [
+              'function allowance(address owner, address spender) external view returns (uint256)'
+            ],
+            signer
+          );
+          const allowance = await tokenContract.allowance(accounts[0], VOTING_CONTRACT_ADDRESS);
+          setNeedsApproval(allowance.lt(parseEther(ethers, VOTE_FEE.toString())));
+        } catch (error) {
+          console.error('Error checking token allowance:', error);
+          setNeedsApproval(true);
+        }
+        
+        await fetchProposals(voting);
+      } catch (error) {
+        console.error('Initialization error:', error);
+      } finally {
+        setLoading(false);
       }
     };
+    
     init();
+    
+    // Cleanup function
+    return () => {
+      // Any cleanup if needed
+    };
   }, []);
 
+  // Log account and owner changes
   useEffect(() => {
     if (account && owner) {
       console.log('Current account:', account);
@@ -253,6 +253,7 @@ const VoteDashboard = () => {
   };
 
   const handleVote = async (displayId) => {
+    let tx;
     try {
       setIsTxPending(true);
       if (votedProposals.size > 0) {
@@ -261,7 +262,7 @@ const VoteDashboard = () => {
           title: 'Already Voted',
           description: 'You have already voted in this session',
           isError: true,
-          type: 'error' // Changed to error type
+          type: 'error'
         });
         setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 5000);
         return;
@@ -277,27 +278,35 @@ const VoteDashboard = () => {
       }
       
       // Submit vote
-      const tx = await voting.vote(displayId);
-      await tx.wait();
+      tx = await voting.vote(displayId);
+      const receipt = await tx.wait();
+      setLastTransactionHash(receipt.transactionHash);
       
       // Refresh data from contract
-      await fetchProposals();
+      await fetchProposals(voting);
+      debugContractMethods(voting); // Debug contract methods
       
       // Update frontend state
       const allProposalIds = proposals.map(p => p.id);
       setVotedProposals(new Set(allProposalIds));
       
+      // Show success notification
       setNotification({
         show: true,
         title: 'Success',
         description: 'Your vote has been recorded!',
         isError: false,
-        type: 'default'
+        type: 'success',
+        key: Date.now()
       });
-      setTimeout(() => setNotification({ show: false }), 5000);
+      
+      // Show NFT modal
+      setShowNFTModal(true);
       
       setHasVoted(true);
     } catch (error) {
+      console.error('Voting error:', error);
+      
       if (error.message.includes('Already voted') || 
           error.reason?.includes('Already voted') ||
           error?.data?.message?.includes('Already voted')) {
@@ -306,11 +315,10 @@ const VoteDashboard = () => {
           show: true,
           title: 'Already Voted',
           description: 'You can only vote once per proposal',
-          isError: true, // Changed to true for red color
-          type: 'error', // Changed to error type
+          isError: true,
+          type: 'error',
           key: Date.now()
         });
-        setTimeout(() => setNotification({ show: false }), 5000);
         
         // Sync voting state
         const allProposalIds = proposals.map(p => p.id);
@@ -361,29 +369,6 @@ const VoteDashboard = () => {
     }
   };
   
-  const handleCloseProposal = async (displayId) => {
-    setTxStatus("Closing...");
-    try {
-      setIsTxPending(true);
-      if (!voting) throw new Error("Voting contract not loaded.");
-      // Find the original ID using the display ID
-      const proposal = proposals.find(p => p.id === displayId);
-      if (!proposal) throw new Error("Proposal not found");
-      
-      const tx = await voting.closeProposal(proposal.originalId);
-      await tx.wait();
-      setNotification('Proposal closed!', '');
-      setTimeout(() => setNotification({ show: false }), 5000);
-      await fetchProposals(voting);
-    } catch (e) {
-      handleError(e, 'Closing failed');
-      setTimeout(() => setNotification({ show: false }), 5000);
-      console.error("Close proposal error:", e);
-    } finally {
-      setIsTxPending(false);
-    }
-  };
-
   const [newProposal, setNewProposal] = useState("");
   const [creating, setCreating] = useState(false);
   const now = Math.floor(Date.now() / 1000);
@@ -400,15 +385,15 @@ const VoteDashboard = () => {
       setIsCreatingProposal(true);
       // Check token balance first
       const tokenContract = new ethers.Contract(
-        HELLO_TOKEN_ADDRESS,
+        VOTE_TOKEN_ADDRESS,
         ['function balanceOf(address) view returns (uint256)'],
         signer
       );
       const balance = await tokenContract.balanceOf(account);
-      const requiredBalance = ethers.utils.parseEther(PROPOSAL_FEE.toString());
+      const requiredBalance = parseEther(ethers, PROPOSAL_FEE.toString());
       
       if (balance.lt(requiredBalance)) {
-        throw new Error(`You need at least ${PROPOSAL_FEE} HLTK to create a proposal`);
+        throw new Error(`You need at least ${PROPOSAL_FEE} VOTE to create a proposal`);
       }
       
       // Handle token approval if needed
@@ -445,13 +430,13 @@ const VoteDashboard = () => {
     if (!account || !signer) return;
     
     const tokenContract = new ethers.Contract(
-      HELLO_TOKEN_ADDRESS,
+      VOTE_TOKEN_ADDRESS,
       ['function allowance(address,address) view returns (uint256)'],
       signer
     );
     
     const allowance = await tokenContract.allowance(account, VOTING_CONTRACT_ADDRESS);
-    const requiredTokens = ethers.utils.parseUnits(PROPOSAL_FEE.toString(), HLTK_DECIMALS);
+    const requiredTokens = parseEther(ethers, PROPOSAL_FEE.toString());
     setNeedsApproval(allowance.lt(requiredTokens));
   };
 
@@ -459,12 +444,12 @@ const VoteDashboard = () => {
     if (!account || !signer) return;
     
     setApproving(true);
-    setTxStatus({ message: 'Approving HLTK tokens...', isError: false });
+    setTxStatus({ message: 'Approving VOTE tokens...', isError: false });
     
     try {
       setIsTxPending(true);
       const tokenContract = new ethers.Contract(
-        HELLO_TOKEN_ADDRESS,
+        VOTE_TOKEN_ADDRESS,
         ['function approve(address,uint256)'],
         signer
       );
@@ -476,7 +461,7 @@ const VoteDashboard = () => {
       
       await tx.wait();
       setNeedsApproval(false);
-      setNotification('HLTK tokens approved successfully!', '');
+      setNotification('VOTE tokens approved successfully!', '');
       setTimeout(() => setNotification({ show: false }), 5000);
     } catch (error) {
       setNotification('Approval failed', error.reason || error.message || 'Unknown error', true);
@@ -515,35 +500,181 @@ const VoteDashboard = () => {
     }
   };
 
+  const connectWallet = async () => {
+    try {
+      setIsConnectingWallet(true);
+      
+      // Check if wallet connection is already pending
+      if (connectionRequested) {
+        throw { code: -32002, message: 'Connection request already pending' };
+      }
+      
+      setConnectionRequested(true);
+      
+      // Get provider
+      const provider = await getEthersProvider(ethers);
+      
+      // Get accounts
+      const accounts = await provider.send('eth_requestAccounts', []);
+      if (!accounts || accounts.length === 0) {
+        throw new Error('No accounts found');
+      }
+      
+      const signer = await provider.getSigner();
+      const voting = new ethers.Contract(VOTING_CONTRACT_ADDRESS, votingAbi, signer);
+      
+      setProvider(provider);
+      setSigner(signer);
+      setVoting(voting);
+      setAccount(accounts[0]);
+      
+      // Check token approval
+      await checkTokenApproval();
+      
+      setNotification({
+        show: true,
+        title: 'Wallet Connected',
+        description: `Connected to account: ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`,
+        isError: false,
+      });
+      
+      setConnectionRequested(false);
+    } catch (err) {
+      handleError(err, 'Wallet Connection Failed');
+      setConnectionRequested(false);
+    } finally {
+      setIsConnectingWallet(false);
+    }
+  };
+
+  
+const fetchAllProposals = async () => {
+  setLoadingProposals(true);
+  try {
+    if (!voting) throw new Error('Contract not initialized');
+    
+    const proposalCount = await voting.proposalCount();
+    const proposals = [];
+    const now = Math.floor(Date.now() / 1000);
+    
+    for (let i = 1; i <= proposalCount; i++) {
+      try {
+        const res = await voting.getResults(i);
+        // Skip removed proposals
+        if (res[4] === true) continue;
+        
+        const description = res[0] || "";
+        const deadline = Number(res[3]) || 0;
+        const closed = res[2];
+        
+        // Determine status
+        let status;
+        if (closed) {
+          status = 'Closed';
+        } else if (now >= deadline) {
+          status = 'Ended';
+        } else {
+          status = 'Open';
+        }
+        
+        proposals.push({
+          id: i,
+          description,
+          status,
+          deadline,
+          closed
+        });
+      } catch (err) {
+        console.warn(`Failed to fetch proposal ${i}:`, err);
+      }
+    }
+    
+    // Sort by status (Open first, then Ended, then Closed) and then by deadline
+    const sortedProposals = proposals.sort((a, b) => {
+      const statusOrder = { 'Open': 0, 'Ended': 1, 'Closed': 2 };
+      if (statusOrder[a.status] !== statusOrder[b.status]) {
+        return statusOrder[a.status] - statusOrder[b.status];
+      }
+      return a.deadline - b.deadline;
+    });
+    
+    setProposalList(sortedProposals);
+  } catch (err) {
+    handleError(err, 'Failed to load proposals');
+  } finally {
+    setLoadingProposals(false);
+  }
+};
+
+const openProposalModal = async () => {
+  setShowProposalModal(true);
+  if (proposalList.length === 0) {
+    await fetchAllProposals();
+  }
+};
+
+if (loadingProposals) {
+  return (
+    <div className="loading">
+      <div className="loading-spinner"></div>
+      Loading Vote Dashboard...
+    </div>
+  );
+}
+
   return (
     <div className="voting-dashboard">
-      {notification.show && notification.type === 'wallet' && (
-        <div className="notification-wallet">
-          <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-            <FaInfoCircle className="notification-wallet-icon" />
-            <span style={{fontWeight: 'bold'}}>Connect Your Wallet</span>
-          </div>
-          <span>{notification.description}</span>
+      <nav className="nav-container">
+        <div className="nav-links">
+          <button 
+            onClick={() => window.location.href = '/vote'}
+            className="nav-link"
+          >
+            Vote Dashboard
+          </button>
+          <button 
+            onClick={openProposalModal} 
+            className="nav-link"
+          >
+            Proposal Details
+          </button>
+          <button
+            onClick={() => window.location.href = "/my-votes"}
+            className="nav-link"
+          >
+            My Votes
+          </button>
+          <button
+            onClick={() => window.location.href = "/my-nfts"}
+            className="nav-link"
+          >
+            My NFTs
+          </button>
         </div>
-      )}
-      {notification.show && notification.type !== 'wallet' && (
-        <div className={
-          notification.type === 'error' ? "notification-error" :
-          notification.type === 'info' ? "notification-info" :
-          "notification-success"
-        }>
-          {notification.type === 'error' ? (
-            <FaExclamationTriangle className="notification-error-icon" />
-          ) : notification.type === 'info' ? (
-            <FaInfoCircle className="notification-info-icon" />
-          ) : (
-            <FaCheck className="notification-icon" />
-          )}
-          <span>{notification.title}</span>
-          <p>{notification.description}</p>
+      </nav>
+
+      {notification && notification.show && (
+        <div className={`notification notification-${notification.type || 'success'}`}>
+          <div className="notification-content">
+            {notification.type === 'error' ? (
+              <FaExclamationTriangle className="notification-icon" />
+            ) : notification.type === 'info' || notification.type === 'wallet' ? (
+              <FaInfoCircle className="notification-icon" />
+            ) : (
+              <FaCheck className="notification-icon" />
+            )}
+            <div className="notification-text">
+              <span className="notification-title">{notification.title || ''}</span>
+              {notification.description && <p className="notification-description">{notification.description}</p>}
+            </div>
+          </div>
         </div>
       )}
       
+      {/* Show Loading overlay for proposal viewing, not during wallet/tx loading */}
+      {isProposalLoading && !isConnectingWallet && !isTxPending && (
+        <Loading text="Loading Proposals..." />
+      )}
       {isConnectingWallet && (
         <div className="wallet-connecting-overlay">
           <div className="wallet-connecting-content">
@@ -554,116 +685,111 @@ const VoteDashboard = () => {
         </div>
       )}
       
-      <div className="dashboard-header">
+      <header className="dashboard-header">
         <h1 className="dashboard-title">
           <FaVoteYea className="dashboard-title-icon" />
           Voting Dashboard
         </h1>
- 
-      </div>
+      </header>
+      
       
       {/* Wallet Connection */}
       {!account ? (
-        <div className="wallet-connected">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <FaExclamationTriangle className="h-5 w-5 text-yellow-400" />
-            </div>
-            <div className="ml-3">
-              <h2 className="text-sm font-medium text-yellow-800">|| Connect Your Wallet ||</h2>
-              <div className="mt-2 text-sm text-yellow-700">
-                <p>You need to connect your wallet to interact with the voting system.</p>
-                <button
-                  onClick={async () => {
-                    if (window.ethereum) {
-                      try {
-                        const _provider = new ethers.providers.Web3Provider(window.ethereum);
-                        await window.ethereum.request({ method: 'eth_requestAccounts' });
-                        const _signer = await _provider.getSigner();
-                        const addr = await _signer.getAddress();
-                        setProvider(_provider);
-                        setSigner(_signer);
-                        setAccount(addr);
-                        const _voting = new ethers.Contract(
-                          VOTING_CONTRACT_ADDRESS,
-                          votingAbi,
-                          _signer
-                        );
-                        setVoting(_voting);
-                        await fetchProposals(_voting);
-                        debugContractMethods(_voting); // Pass the contract instance
-                      } catch (e) {
-                        setTxStatus(`Failed to connect wallet: ${e?.reason || e?.message || 'Unknown error'}`);
-                      }
-                    } else {
-                      setTxStatus("MetaMask not detected. Please install MetaMask to continue.");
-                    }
-                  }}
-                  className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
-                >
-                  {isConnectingWallet ? 'Connecting...' : 'Connect MetaMask'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div className="wallet-disconnected">
+  <div className="wallet-status">
+    <div style={{ width: '100%' }}>
+      <h2 className="wallet-header">|| Connect Your Wallet ||</h2>
+      <div className="wallet-box">
+        <FaWallet className="wallet-icon" />
+        <span className="wallet-address">Not Connected</span>
+      </div>
+      <p className="mt-1 text-sm" style={{ color: '#f59e0b', fontWeight: 500 }}>You need to connect your wallet to interact with the voting system.</p>
+    </div>
+    <button
+      onClick={async () => {
+        if (window.ethereum) {
+          try {
+            const _provider = new ethers.providers.Web3Provider(window.ethereum);
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const _signer = await _provider.getSigner();
+            const addr = await _signer.getAddress();
+            setProvider(_provider);
+            setSigner(_signer);
+            setAccount(addr);
+            const _voting = new ethers.Contract(
+              VOTING_CONTRACT_ADDRESS,
+              votingAbi,
+              _signer
+            );
+            setVoting(_voting);
+            await fetchProposals(_voting);
+            debugContractMethods(_voting);
+          } catch (e) {
+            setTxStatus(`Failed to connect wallet: ${e?.reason || e?.message || 'Unknown error'}`);
+          }
+        } else {
+          setTxStatus("MetaMask not detected. Please install MetaMask to continue.");
+        }
+      }}
+      className="btn btn-warning"
+      disabled={isConnectingWallet}
+    >
+      {isConnectingWallet ? 'Connecting...' : 'Connect MetaMask'}
+    </button>
+  </div>
+</div>
       ) : (
         <div className="wallet-connected">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-medium text-green-800">|| Wallet Connected ||</h2>
-              <div className="mt-1 text-sm text-green-700">
-                <p>Connected as: <span className="font-mono">{account}</span></p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setAccount("");
-                setProvider(null);
-                setSigner(null);
-                setVoting(null);
-              }}
-              className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              Disconnect
-            </button>
-          </div>
-        </div>
+  <div className="wallet-status">
+    <div style={{ width: '100%' }}>
+      <h2 className="wallet-header">|| Wallet Connected ||</h2>
+      <div className="wallet-box">
+        <FaWallet className="wallet-icon" /> Connected as: 
+        <span className="wallet-address">{account}</span>
+      </div>
+      <p className="mt-1 text-sm" style={{ color: '#1d4ed8', fontWeight: 500 }}>You are connected and ready to vote!</p>
+    </div>
+    <button
+      onClick={() => {
+        setAccount("");
+        setProvider(null);
+        setSigner(null);
+        setVoting(null);
+      }}
+      className="btn btn-warning"
+    >
+      Disconnect
+    </button>
+  </div>
+</div>
       )}
  
       {/* How It Works */}
-      <div className="info-card">
+      <section className="info-card">
         <div className="info-header">
-          <FaInfoCircle className="info-icon" />
-          <h2 className="info-title">|| How It Works ||</h2>
+          <h2 className="info-header-title">|| How It Works ||</h2>
         </div>
         <div className="info-content">
           <div className="info-items">
             <div className="info-item">
               <div className="info-bullet">
-                <div className="bullet-point">
-                  <div className="bullet-inner"></div>
-                </div>
+                <div className="bullet-point" />
               </div>
               <p className="info-text">
-                <span className="label-text">Voting:</span> Each vote costs 10 HLTK (sent to contract owner)
+                <span className="label-text">Voting:</span> Each vote costs {formatBigNumber(VOTE_FEE)} VOTE (sent to contract owner)
               </p>
             </div>
             <div className="info-item">
               <div className="info-bullet">
-                <div className="bullet-point">
-                  <div className="bullet-inner"></div>
-                </div>
+                <div className="bullet-point" />
               </div>
               <p className="info-text">
-                <span className="label-text">Proposals:</span> Creating a proposal costs 25 HLTK (sent to contract owner)
+                <span className="label-text">Proposals:</span> Creating a proposal costs {formatBigNumber(PROPOSAL_FEE)} VOTE (sent to contract owner)
               </p>
             </div>
             <div className="info-item">
               <div className="info-bullet">
-                <div className="bullet-point">
-                  <div className="bullet-inner"></div>
-                </div>
+                <div className="bullet-point" />
               </div>
               <p className="info-text">
                 <span className="label-text">Gas fees:</span> You'll need Sepolia ETH for transaction fees
@@ -671,9 +797,7 @@ const VoteDashboard = () => {
             </div>
             <div className="info-item">
               <div className="info-bullet">
-                <div className="bullet-point">
-                  <div className="bullet-inner"></div>
-                </div>
+                <div className="bullet-point" />
               </div>
               <p className="info-text">
                 <span className="label-text">Voting period:</span> Each proposal is open for voting until its deadline
@@ -681,9 +805,7 @@ const VoteDashboard = () => {
             </div>
             <div className="info-item">
               <div className="info-bullet">
-                <div className="bullet-point">
-                  <div className="bullet-inner"></div>
-                </div>
+                <div className="bullet-point" />
               </div>
               <p className="info-text">
                 <span className="label-text">Results:</span> See the current leader in the "Who's winning?" section below
@@ -691,11 +813,12 @@ const VoteDashboard = () => {
             </div>
           </div>
         </div>
-      </div>
+      </section>
+      
       {/* Proposals Table */}
       <div className="proposals-table">
         <div className="table-header">
-          <h2 className="text-lg leading-6 font-medium text-gray-900">|| Active Proposals ||</h2>
+          <h2 className="active-proposals-header">Active Proposals</h2>
         </div>
         
         {loading ? (
@@ -721,16 +844,21 @@ const VoteDashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {proposals.map((p) => {
+                {proposals.map((p, index) => {
                   const isOpen = !p.closed && now < p.deadline;
                   const isEnded = !p.closed && now >= p.deadline;
                   const status = p.closed ? 'Closed' : isEnded ? 'Ended' : 'Open';
+                  const displayId = index + 1; // Sequential ID starting from 1
                   
                   return (
                     <tr key={p.id} className={p.removed ? 'opacity-50' : ''}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{p.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{displayId}</td>
                       <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                        <div className="font-medium">{p.description}</div>
+                        <div className="font-medium">
+                          <a href={`/proposal/${p.id}`} className="proposal-link">
+                            {p.description}
+                          </a>
+                        </div>
                         {p.removed && <span className="text-xs text-red-600">(Removed)</span>}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -747,7 +875,7 @@ const VoteDashboard = () => {
                               style={{ width: `${Math.min(100, (p.votes / Math.max(1, Math.max(...proposals.map(prop => prop.votes || 0)))) * 100)}%` }}
                             ></div>
                           </div>
-                          {p.votes || 0}
+                          {formatBigNumber(p.votes)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -763,14 +891,6 @@ const VoteDashboard = () => {
                             </button>
                           )}
                           
-                          {account && isEnded && !p.closed && !p.removed && (
-                            <button 
-                              onClick={() => handleCloseProposal(p.id)} 
-                              className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            >
-                              Close
-                            </button>
-                          )}
                           
                           {(!account || p.closed) && !isOpen && !isEnded && (
                             <span className="text-sm text-gray-500">Voting closed</span>
@@ -795,12 +915,12 @@ const VoteDashboard = () => {
                 setShowRemoveForm(false);
               }}
               className="create-proposal-btn"
-              title={'Costs 25 HLTK to create a proposal.'}
+              title={'Costs 25 VOTE to create a proposal.'}
             >
               Create New Proposal
             </button>
             
-            {account && owner === account && (
+            {account && account.toLowerCase() === OWNER_ADDRESS.toLowerCase() && (
               <button
                 onClick={() => {
                   setShowRemoveForm(true);
@@ -811,14 +931,20 @@ const VoteDashboard = () => {
                 Remove Proposal
               </button>
             )}
+            <button
+              onClick={openProposalModal}
+              className="view-all-proposals-btn"
+            >
+              View All Proposals
+            </button>
           </div>
         )}
       </div>
       {/* Add Proposal Form */}
       {showInput && (
         <div className="proposal-box">
-          <h2>Create New Proposal</h2>
-          <p>Costs {PROPOSAL_FEE} HLTK to create a proposal.</p>
+          <h2 className="proposal-box-title">Create New Proposal</h2>
+          <p>Costs {formatBigNumber(PROPOSAL_FEE)} VOTE to create a proposal.</p>
           
           <form onSubmit={handleCreateProposal}>
             <input
@@ -851,7 +977,7 @@ const VoteDashboard = () => {
               
               <button 
                 type="button" 
-                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="cancel-btn"
                 onClick={() => setShowInput(false)}
               >
                 Cancel
@@ -862,73 +988,106 @@ const VoteDashboard = () => {
       )}
       {showRemoveForm && (
         <div className="proposal-box">
-          <h2>Remove Proposal</h2>
-            <form onSubmit={handleRemoveProposal}>
-              <input
-                type="text"
-                value={removeProposalName}
-                onChange={(e) => setRemoveProposalName(e.target.value)}
-                placeholder="Enter proposal name to remove"
-                className="proposal-input"
-                required
-              />
+          <h2 className="proposal-box-title">Remove Proposal</h2>
+          <form onSubmit={handleRemoveProposal}>
+            <input
+              type="text"
+              value={removeProposalName}
+              onChange={(e) => setRemoveProposalName(e.target.value)}
+              placeholder="Enter proposal name to remove"
+              className="proposal-input"
+              required
+              autoFocus
+            />
             
-                <button 
+            <div className="proposal-buttons">
+              <button 
                 type="submit" 
                 disabled={removing}
                 className="submit-btn"
               >
                 {removing ? 'Removing...' : 'Remove Proposal'}
               </button>
-  
+              
+              <button 
+                type="button" 
+                className="cancel-btn"
+                onClick={() => {
+                  setShowRemoveForm(false);
+                  setRemoveProposalName('');
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </form>
         </div>
       )}
 
-      {/* Current Winner Section */}
-      <div className="winner-box">
-        <div className="winner-header">
-          <h2>|| Current Winner ||</h2>
-        </div>
-        <div className="winner-content">
-          {proposals.filter(p => !p.removed).length > 0 ? (
-            <div>
-              {(() => {
-                try {
-                  const validProposals = proposals.filter(p => typeof p.votes === 'number' && !isNaN(p.votes) && !p.removed);
-                  if (!validProposals.length) return (
-                    <p className="text-gray-500">No valid proposals to determine a winner.</p>
-                  );
-                  
-                  const winner = validProposals.reduce((a, b) => (a.votes > b.votes ? a : b));
-                  const isTie = validProposals.filter(p => p.votes === winner.votes).length > 1;
-                  
-                  return (
-                    <div>
-                      {isTie ? (
-                        <p className="winner-name">
-                          It's a tie between multiple proposals with {winner.votes} votes each!
-                        </p>
-                      ) : (
-                        <>
-                          <div className="winner-name">{winner.description}</div>
-                          <div className="winner-votes">
-                            {winner.votes} {winner.votes === 1 ? 'vote' : 'votes'}
+      {/* Determine if there are any active proposals */}
+      {(() => {
+        const hasActiveProposals = proposals && proposals.some(p => !p.removed && !p.closed);
+        if (!hasActiveProposals) return null;
+        return (
+          <>
+            {/* Current Winner Section */}
+            <div className="winner-box">
+              <div className="winner-header">
+                <h2><FaChartBar className="inline mr-2" /> Current Winner</h2>
+              </div>
+              <div className="winner-content">
+                {proposals.filter(p => !p.removed).length > 0 ? (
+                  <div>
+                    {(() => {
+                      try {
+                        const validProposals = proposals.filter(p => typeof p.votes === 'number' && !isNaN(p.votes) && !p.removed);
+                        if (!validProposals.length) return (
+                          <p className="text-gray-500" style={{ fontSize: '1rem', textAlign: 'center' }}>No valid proposals to determine a winner.</p>
+                        );
+                        
+                        const winner = validProposals.reduce((a, b) => (a.votes > b.votes ? a : b));
+                        const isTie = validProposals.filter(p => p.votes === winner.votes).length > 1;
+                        
+                        return (
+                          <div>
+                            {isTie ? (
+                              <p className="winner-name">
+                                It's a tie between multiple proposals with {formatBigNumber(winner.votes)} votes each!
+                              </p>
+                            ) : (
+                              <>
+                                <div className="winner-name" style={{ fontSize: '1rem', textAlign: 'center' }}>{winner.description}</div>
+                                <div className="winner-votes" style={{ fontSize: '1rem', textAlign: 'center' }}>
+                                  {formatBigNumber(winner.votes)} {winner.votes === 1 ? 'vote' : 'votes'}
+                                </div>
+                              </>
+                            )}
                           </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                } catch (e) {
-                  return <p className="text-gray-500">Error determining winner</p>;
-                }
-              })()}
+                        );
+                      } catch (e) {
+                        return <p className="text-gray-500">Error determining winner</p>;
+                      }
+                    })()}
+                  </div>
+                ) : (
+                  <p className="text-gray-500" style={{ fontSize: '1rem', textAlign: 'center' }}>No proposals have been created yet</p>
+                )}
+              </div>
             </div>
-          ) : (
-            <p className="text-gray-500">No proposals have been created yet</p>
-          )}
-        </div>
-      </div>
+
+            {/* Voting Results Chart */}
+            <div className="chart-box mt-6">
+              <div className="chart-header">
+                <h2><FaChartBar className="inline mr-2" />Voting Results</h2>
+              </div>
+              <div className="chart-content">
+                <VotingResultsChart proposals={proposals} />
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
       {isTxPending && (
         <div className="tx-loading-overlay">
           <div className="tx-loading-content">
@@ -937,6 +1096,49 @@ const VoteDashboard = () => {
             <small>Please confirm in MetaMask</small>
           </div>
         </div>
+      )}
+      {showProposalModal && (
+        <div className="modal-overlay">
+        <div className="proposal-modal">
+          <div className="modal-header">
+            <h2>All Proposals</h2>
+            <button className="close-modal" onClick={() => setShowProposalModal(false)}>
+              ×
+            </button>
+          </div>
+          {loadingProposals ? (
+            <div className="loading-proposals">
+              <FaSpinner className="spinner" />
+              Loading proposals...
+            </div>
+          ) : (
+            <div className="proposal-list">
+              {proposalList?.length > 0 ? (
+                proposalList.map(proposal => (
+                  <div key={proposal.id} className="proposal-item">
+                    <span className="proposal-id">Proposal #{proposal.id}</span>
+                    <span className="proposal-description" style={{ margin: 0 }}>{proposal.description}</span>
+                    <span className="proposal-status" status={proposal.status.toLowerCase()}>
+                      {proposal.status}
+                    </span>
+                    <Link 
+                      to={`/proposal/${proposal.id}`}
+                      className="view-details-btn"
+                      onClick={() => setShowProposalModal(false)}
+                    >
+                      <FaInfoCircle className="view-details-icon" />
+                      View Details
+                    </Link>
+                  </div>
+                ))
+              ) : (
+                <p>No proposals found</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+          
       )}
     </div>
   );

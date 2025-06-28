@@ -1,0 +1,15 @@
+{
+  "name": "Ganesha Voting Badge",
+  "description": "A special badge awarded for participating in the voting process",
+  "image": "/NFT_IMG/Ganesha.png",
+  "attributes": [
+    {
+      "trait_type": "Type",
+      "value": "Ganesha"
+    },
+    {
+      "trait_type": "Rarity",
+      "value": "Legendary"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Buddha Voting Badge",
+  "description": "A special badge awarded for participating in the voting process",
+  "image": "/NFT_IMG/Buddha.png",
+  "attributes": [
+    {
+      "trait_type": "Type",
+      "value": "Buddha"
+    },
+    {
+      "trait_type": "Rarity",
+      "value": "Rare"
+    }
+  ]
+}

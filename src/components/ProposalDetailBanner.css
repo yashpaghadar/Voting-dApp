@@ -1,0 +1,111 @@
+/* Proposal Detail Banner Styles */
+.proposal-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: linear-gradient(90deg, #1d4ed8 0%, #5adef9 100%);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(30, 41, 59, 0.18);
+  padding: 2rem 2.5rem 1.5rem 2.5rem;
+  margin-bottom: 2.5rem;
+  color: #fff;
+  animation: fadeInBanner 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes fadeInBanner {
+  from { opacity: 0; transform: translateY(-30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.banner-left {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.banner-icon.crown {
+  font-size: 2.2rem;
+  color: #ffe066;
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 2px 8px rgba(255, 224, 102, 0.25));
+}
+
+.banner-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.3rem;
+}
+
+.banner-status {
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.2rem 1.1rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.18);
+  margin-left: 0.5rem;
+  letter-spacing: 1px;
+}
+
+.banner-desc {
+  font-size: 1.1rem;
+  color: #e0e7ef;
+  margin: 0;
+  font-weight: 500;
+  text-shadow: 0 2px 8px rgba(30,41,59,0.1);
+}
+
+.banner-right {
+  flex: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  align-items: flex-end;
+}
+
+.banner-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.08rem;
+  background: rgba(255,255,255,0.10);
+  padding: 0.65rem 1.2rem;
+  border-radius: 13px;
+  box-shadow: 0 2px 8px rgba(30,41,59,0.06);
+  margin-bottom: 0.2rem;
+}
+
+.banner-meta-icon {
+  font-size: 1.1rem;
+  color: #ffe066;
+}
+
+.banner-meta-label {
+  font-weight: 600;
+  color: #fff;
+  margin-right: 0.2rem;
+}
+
+.banner-meta-value {
+  color: #e0e7ef;
+  font-family: monospace;
+  font-size: 1.05rem;
+}
+
+@media (max-width: 900px) {
+  .proposal-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1.5rem 1.2rem 1rem 1.2rem;
+  }
+  .banner-right {
+    align-items: flex-start;
+    margin-top: 1.5rem;
+    gap: 0.7rem;
+  }
+}
