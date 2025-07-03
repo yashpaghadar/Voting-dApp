@@ -1,27 +1,45 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
   "routes": [
     {
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
+    },
+    {
+      "src": "/vite.svg",
+      "dest": "/vite.svg"
+    },
+    {
       "src": "/vote",
-      "dest": "/index.html",
-      "status": 200
+      "dest": "/index.html"
     },
     {
       "src": "/vote/.*",
-      "dest": "/index.html",
-      "status": 200
+      "dest": "/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ],
   "env": {
-    "VITE_VOTING_CONTRACT_ADDRESS": "0x44322145F83815D54045A61f13e477b1948554dE",
-    "VITE_HELLO_TOKEN_ADDRESS": "0xDd699d82b9A85cdF08D3196D98a2130e7118ddbb",
-    "VITE_ALCHEMY_API_KEY": "IH_QSnCDUmK41vB4MwXD5"
-  },
-  "build": {
-    "env": {
-      "VITE_VOTING_CONTRACT_ADDRESS": "0x44322145F83815D54045A61f13e477b1948554dE",
-      "VITE_HELLO_TOKEN_ADDRESS": "0xDd699d82b9A85cdF08D3196D98a2130e7118ddbb",
-      "VITE_ALCHEMY_API_KEY": "IH_QSnCDUmK41vB4MwXD5"
-    }
+    "NODE_VERSION": "18.x",
+    "VITE_VOTING_CONTRACT_ADDRESS": "0xBF59f32d8A61db34AAB50e7e00284739ed69f5f7",
+    "VITE_VOTE_TOKEN_ADDRESS": "0x75642511876D55CDBfB58f53A5d222FAC15BEf35",
+    "VITE_NFT_CONTRACT_ADDRESS": "0x1ec4186707f1d55f7b9034f3b742fd20be4e02a7",
+    "VITE_OWNER_ADDRESS": "0x1ec4186707f1d55f7b9034f3b742fd20be4e02a7",
+    "VITE_VOTE_BADGE_NFT_ADDRESS": "0x986F93C2483c9A7253f4EFA63fa5FfDEA882e6Aa",
+    "VITE_ALCHEMY_API_KEY": "IH_QSnCDUmK41vB4MwXD5",
+    "VITE_PINATA_API_KEY": "7080c718477fa2156913",
+    "VITE_PINATA_API_SECRET": "fd2f1ae80b46e125564cd6d1e746aa63d0da23cf29916cf8c2f1692fb3ecc9c9"
   }
 }

@@ -6,14 +6,20 @@ export default ({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   return defineConfig({
+    base: '/',
     plugins: [react()],
     define: {
       'process.env': {
-        VITE_VOTE_TOKEN_ADDRESS: JSON.stringify(env.VITE_VOTE_TOKEN_ADDRESS),
-        VITE_VOTING_CONTRACT_ADDRESS: JSON.stringify(env.VITE_VOTING_CONTRACT_ADDRESS),
-        VITE_ALCHEMY_API_KEY: JSON.stringify(env.ALCHEMY_API_KEY),
-        VITE_ALCHEMY_URL: JSON.stringify(env.VITE_ALCHEMY_URL),
-        VITE_APP_ENV: JSON.stringify(env.VITE_APP_ENV || 'development')
+        ...Object.entries(env).reduce((prev, [key, val]) => {
+          if (key.startsWith('VITE_')) {
+            return {
+              ...prev,
+              [key]: JSON.stringify(val)
+            };
+          }
+          return prev;
+        }, {}),
+        VITE_APP_ENV: JSON.stringify(env.VITE_APP_ENV || 'production')
       }
     },
     resolve: {

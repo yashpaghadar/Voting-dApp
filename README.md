@@ -1,16 +1,16 @@
 # 🗳️ Decentralized Voting dApp
 
-A secure, transparent, and decentralized voting application built on the Ethereum blockchain. This dApp allows users to create proposals, vote on them using ERC-20 tokens, and view real-time results in a user-friendly interface.
+A secure, transparent, and decentralized voting application built on the Sepolia(Ethereum) blockchain. This dApp allows users to create proposals, vote on them using ERC-20 tokens, and view real-time results in a user-friendly interface and also get the unique badge for each user.
 
 ## 🌟 Features
 
 - **Decentralized Governance**: Built on Ethereum blockchain for transparency and security
-- **Token-Based Voting**: Uses HLTK ERC-20 tokens for voting rights
+- **Token-Based Voting**: Uses 'VOTE' ERC-20 tokens for voting rights
 - **User-Friendly Interface**: Clean, responsive UI with real-time updates
 - **Secure Authentication**: Web3 wallet integration (MetaMask, WalletConnect, etc.)
 - **Admin Panel**: Manage proposals and view analytics with admin controls
 - **IPFS Integration**: Decentralized storage for proposal data
-- **Real-time Results**: Live updates on voting progress with charts
+- **Real-time Results**: Live updates on voting progress with chart
 
 ## 🚀 Live Demo
 
@@ -127,8 +127,11 @@ Contributions are welcome! Please follow these steps:
 
 This project is licensed under the MIT License.
 
-## 📧 Contact
+## 📧 Need Help?
 
-For any questions or feedback, please open an issue or contact the project maintainers.
+Got questions or suggestions? Feel free to:
+- Open an issue on GitHub
+- Contact the project maintainers directly
 
-Made by Yash Paghadar 
+---
+Built by Yash Paghadar 🚀
