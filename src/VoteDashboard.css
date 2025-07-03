@@ -1,6 +1,21 @@
+/* Global h2 Styles */
+h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1d4ed8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+h2 svg {
+  margin-right: 0.5rem;
+  color: #1d4ed8;
+}
+
 /* Main Container */
 body, html {
-  margin: 0;
   padding: 0;
   min-height: 100vh;
   color: #1d4ed8;
@@ -52,11 +67,6 @@ body, html {
   justify-content: center;
 }
 
-.nav-link:hover,
-.nav-link.active {
-  background: linear-gradient(90deg, #7de9ff, #f989ff);
-  box-shadow: 0 4px 15px rgba(125, 233, 255, 0.3);
-}
 
 /* Notifications */
 .notification {
@@ -1125,7 +1135,7 @@ table tr:last-child td {
   gap: 1.5rem;
   flex-wrap: wrap;
 }
-.create-proposal-btn, .remove-proposal-btn, .view-all-proposals-btn {
+.create-proposal-btn, .remove-proposal-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1139,7 +1149,9 @@ table tr:last-child td {
   box-shadow: 0 2px 8px rgba(30,64,175,.07);
   transition: background 0.2s, box-shadow 0.2s, transform 0.12s;
   letter-spacing: 0.01em;
-  margin-bottom: 0.5rem;
+  margin-bottom: 2rem;
+  margin-left: 3rem;
+  margin-right: 3rem;
 }
 .create-proposal-btn {
   background: linear-gradient(90deg, #1d4ed8 10%, #10b981 90%);
@@ -1152,26 +1164,16 @@ table tr:last-child td {
   color:#020610;
 }
 .remove-proposal-btn {
-  background: linear-gradient(90deg, #ff7979 10%, #ffb12a 90%);
+  background: linear-gradient(90deg, #ff7979 10%, #ff5947 90%);
   color: #fff;
 }
 .remove-proposal-btn:hover, .remove-proposal-btn:focus {
-  background: linear-gradient(90deg, #ffb12a 0%, #ff7979 100%);
+  background: linear-gradient(90deg, #ff5947 0%, #ff7979 100%);
   box-shadow: 0 4px 16px rgba(239, 68, 68, 0.16);
   transform: translateY(-2px) scale(1.04);
   color:#020610;
 }
-.view-all-proposals-btn {
-  background: linear-gradient(90deg, #6366f1 10%, #60a5fa 90%);
-  color: #fff;
-}
-.view-all-proposals-btn:hover, .view-all-proposals-btn:focus {
-  background: linear-gradient(90deg, #4f46e5 0%, #2563eb 100%);
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.16);
-  transform: translateY(-2px) scale(1.04);
-  color:#020610;
-}
-.create-proposal-btn:active, .remove-proposal-btn:active, .view-all-proposals-btn:active {
+.create-proposal-btn:active, .remove-proposal-btn:active {
   transform: scale(0.97);
   filter: brightness(0.97);
 }
@@ -1304,14 +1306,6 @@ table tr:last-child td {
   }
 }
 
-.view-all-proposals-btn,
-.view-all-proposals-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15); 
-  background: linear-gradient(135deg, #4facfe, #71a0f1);
-}
-
-
 /* Notification */
 .notification {
   animation: slideIn 0.3s ease-out, fadeOut 0.5s ease-in 4.5s forwards;
@@ -1399,38 +1393,6 @@ table tr:last-child td {
   margin-bottom: 4px;
 }
 
-/* Proposal Submission Box */
-.proposal-box {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  padding: 20px;
-  margin: 20px 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.proposal-box h3 {
-  margin-top: 0;
-  color: #212529;
-  font-size: 1.25rem;
-  margin-bottom: 15px;
-}
-.proposal-box-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1d4ed8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  margin-bottom: 1rem;
-}
-.proposal-box p,
-.remove-proposal-box p {
-  color: #6c757d;
-  margin-bottom: 15px;
-  font-size: 0.95rem;
-}
 
 /* Chart Styles */
 .chart-box {
@@ -1453,15 +1415,7 @@ table tr:last-child td {
   border-bottom: 1px solid #e2e8f0;
 }
 
-.chart-header h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1d4ed8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-}
+/* Chart header inherits from global h2 */
 
 .chart-content {
   position: relative;
@@ -1474,7 +1428,7 @@ table tr:last-child td {
     min-height: 300px;
   }
   
-  .chart-header h2 {
+  h2 {
     font-size: 1.1rem;
   }
 }
@@ -1495,90 +1449,174 @@ table tr:last-child td {
   transform: translateY(-2px) scale(1.01);
 }
 
-
-/* Consistent Blue Headers for Info and Proposals */
-.info-header-title,
-.active-proposals-header {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1d4ed8;
+.winner-header {
   display: flex;
   align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
   justify-content: center;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Winner header inherits from global h2 */
+
+.winner-content {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.winner-name {
+  font-size: 1.125rem;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.winner-votes {
+  font-size: 0.875rem;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .active-proposal-box,
+  .winner-box {
+    padding: 1.25rem;
+  }
+  
+  .active-proposal-header h2,
+  h2 {
+    font-size: 1.125rem;
+  }
+ }
+
+/* Proposal Form Styles */
+.proposal-form-container {
+  margin-top: 1rem;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
   margin-bottom: 1rem;
 }
 
-
-.proposal-input {
-  width: 95%;
-  padding: 10px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  background: white;
-  color: #212529;
- 
-}
-
-.proposal-input:focus {
-  outline: none;
-  border-color: #1d4ed8;
-  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.2);
-}
-
-.proposal-input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 15px;
-
-}
-
-.proposal-submit {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.proposal-cancel {
-  background: linear-gradient(135deg, #ff758c, #ff7eb3);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.remove-btn {
-  background: linear-gradient(135deg, #4facfe, #00f2fe);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-left: 10px;
-}
-
-.remove-btn:hover {
-  background: linear-gradient(135deg, #3aa0f7, #00d8fe);
-}
-
-/* Remove Proposal Box */
-.remove-proposal-box {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  padding: 20px;
-  margin: 10px 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.remove-proposal-box h3 {
-  margin-top: 0;
-  color: #212529;
+.proposal-form-title {
   font-size: 1.25rem;
-  margin-bottom: 10px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #1f2937;
+  justify-content: flex-start;
+  margin-left: 0.5rem;
+}
+
+.proposal-form-text {
+  color: #1d4ed8;
+  margin-bottom: 1rem;
+}
+
+.proposal-form-input {
+  width: 90%;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.9375rem;
+  color: #1e293b;
+  background-color: #f8fafc;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.proposal-form-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.proposal-form-input:focus {
+  outline: none;
+  border-color: #60a5fa;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+}
+
+.proposal-form-input:disabled {
+  background-color: #f1f5f9;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.proposal-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.proposal-form-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  padding: 0.4rem 1.5rem;
+  border-radius: 8px;
+  transition: all 0.2s;
+  cursor: pointer;
+  height: 40px;
+}
+
+.proposal-form-submit {
+  background-color: #2563eb;
+  color: #1f2937;
+  border: none;
+}
+
+.proposal-form-submit:hover {
+  background-color: #1d4ed8;
+}
+
+.proposal-form-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.proposal-form-cancel {
+  background-color: #e5e7eb;
+  color: #1f2937;
+  border: none;
+}
+
+.proposal-form-cancel:hover {
+  background-color: #d1d5db;
+}
+
+.proposal-form-notification {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: #eff6ff;
+  color: #1e40af;
+  font-size: 0.875rem;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+}
+
+.proposal-form-notification-icon {
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+}
+
+.proposal-form-notification-content {
+  flex: 1;
+}
+
+.proposal-form-notification-title {
+  font-weight: 600;
+  margin-bottom: 0.125rem;
+}
+
+.proposal-form-notification-text {
+  font-size: 0.75rem;
 }

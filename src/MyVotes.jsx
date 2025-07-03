@@ -6,8 +6,8 @@ import votingAbiString from './abi/Voting.json';
 import { getEthersProvider, parseContractAbi, formatBigNumber } from './utils/ethersHelpers';
 import { CONFIG } from './utils/config';
 import './MyVotes.css';
-import './ProposalModal.css';
 import Loading from './Loading';
+import ProposalModal from './components/ProposalModal';
 
 const votingAbi = parseContractAbi(votingAbiString);
 
@@ -22,6 +22,7 @@ const MyVotes = () => {
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [proposalList, setProposalList] = useState([]);
   const [loadingProposals, setLoadingProposals] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
  // Validate configuration on component mount
   useEffect(() => {
@@ -35,6 +36,21 @@ const MyVotes = () => {
       setError('Failed to load application configuration. Please try again later.');
     }
   }, []);
+
+  // Check if user is the contract owner
+  const checkIfOwner = async (contract, userAddress) => {
+    if (!contract) return false;
+    try {
+      const contractOwner = await contract.owner();
+      const isUserOwner = userAddress && contractOwner && 
+                         userAddress.toLowerCase() === contractOwner.toLowerCase();
+      setIsOwner(isUserOwner);
+      return isUserOwner;
+    } catch (error) {
+      console.error('Error checking owner status:', error);
+      return false;
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -75,6 +91,9 @@ const MyVotes = () => {
         );
         
         setVoting(votingContract);
+        
+        // Check if user is owner after contract is initialized
+        await checkIfOwner(votingContract, address);
 
         try {
           // Get total number of proposals
@@ -136,7 +155,8 @@ const MyVotes = () => {
 
   const fetchVotedProposals = async (contract, userAddress, count) => {
     try {
-      const votedProposalsList = [];
+      const activeProposals = [];
+      const removedProposals = [];
       const now = Math.floor(Date.now() / 1000);
       
       // Check each proposal to see if the user has voted
@@ -145,46 +165,56 @@ const MyVotes = () => {
           const voteWeight = await contract.getVoteWeight(i, userAddress);
           if (voteWeight.gt(0)) {
             const [description, totalVotes, closed, deadline, removed, creator] = await contract.getResults(i);
-            if (!removed) {
-              // Determine status
-              let status;
-              if (closed) {
-                status = 'Closed';
-              } else if (now >= deadline) {
-                status = 'Ended';
-              } else {
-                status = 'Open';
-              }
-              
-              votedProposalsList.push({
-                id: i,
-                description,
-                totalVotes: totalVotes.toString(),
-                closed,
-                deadline: deadline.toNumber(),
-                creator,
-                voteWeight: voteWeight.toString(),
-                status // Add status to the proposal object
-              });
+            
+            // Determine status
+            let status;
+            if (removed) {
+              status = 'Removed';
+            } else if (closed) {
+              status = 'Closed';
+            } else if (now >= deadline) {
+              status = 'Ended';
+            } else {
+              status = 'Open';
+            }
+            
+            const proposalData = {
+              id: i,
+              description: description || 'No description',
+              totalVotes: totalVotes.toString(),
+              closed,
+              deadline: deadline.toNumber(),
+              creator,
+              voteWeight: voteWeight.toString(),
+              status,
+              removed
+            };
+            
+            // Separate removed proposals
+            if (removed) {
+              removedProposals.push(proposalData);
+            } else {
+              activeProposals.push(proposalData);
             }
           }
         } catch (err) {
           console.warn(`Error fetching proposal ${i}:`, err);
-          // Continue with next proposal if there's an error
           continue;
         }
       }
       
-      // Sort by status (Open first, then Ended, then Closed) and then by deadline
-      const sortedProposals = votedProposalsList.sort((a, b) => {
-        const statusOrder = { 'Open': 0, 'Ended': 1, 'Closed': 2 };
+      // Sort active proposals by status and deadline
+      const sortedActiveProposals = activeProposals.sort((a, b) => {
+        const statusOrder = { 'Open': 0, 'Ended': 1, 'Closed': 2, 'Removed': 3 };
         if (statusOrder[a.status] !== statusOrder[b.status]) {
           return statusOrder[a.status] - statusOrder[b.status];
         }
         return a.deadline - b.deadline;
       });
       
-      setVotedProposals(sortedProposals);
+      // Combine active and removed proposals (removed at the end)
+      const allProposals = [...sortedActiveProposals, ...removedProposals];
+      setVotedProposals(allProposals);
     } catch (err) {
       console.error('Error fetching voted proposals:', err);
       setError('Failed to load voting history. Please try again.');
@@ -202,56 +232,78 @@ const fetchAllProposals = async () => {
     if (!voting) throw new Error('Contract not initialized');
     
     const proposalCount = await voting.proposalCount();
-    const proposals = [];
+    const activeProposals = [];
+    const endedProposals = [];
+    const removedProposals = [];
     const now = Math.floor(Date.now() / 1000);
     
     for (let i = 1; i <= proposalCount; i++) {
       try {
         const res = await voting.getResults(i);
-        // Skip removed proposals
-        if (res[4] === true) continue;
-        
-        const description = res[0] || "";
-        const deadline = Number(res[3]) || 0;
-        const closed = res[2];
+        const [description, totalVotes, closed, deadline, removed, creator] = res;
+        const deadlineNum = Number(deadline) || 0;
+        const isEnded = now >= deadlineNum;
         
         // Determine status
         let status;
-        if (closed) {
+        if (removed) {
+          status = 'Removed';
+        } else if (closed) {
           status = 'Closed';
-        } else if (now >= deadline) {
+        } else if (isEnded) {
           status = 'Ended';
         } else {
           status = 'Open';
         }
         
-        proposals.push({
+        const proposalData = {
           id: i,
-          description,
-          status,
-          deadline,
-          closed
-        });
+          description: description || 'No description',
+          voteCount: totalVotes.toString(),
+          closed,
+          deadline: deadlineNum,
+          creator,
+          removed,
+          status
+        };
+        
+        // Categorize proposals
+        if (removed) {
+          removedProposals.push(proposalData);
+        } else if (isEnded) {
+          endedProposals.push(proposalData);
+        } else {
+          activeProposals.push(proposalData);
+        }
       } catch (err) {
         console.warn(`Failed to fetch proposal ${i}:`, err);
       }
     }
     
-    // Sort by status (Open first, then Ended, then Closed) and then by deadline
-    const sortedProposals = proposals.sort((a, b) => {
-      const statusOrder = { 'Open': 0, 'Ended': 1, 'Closed': 2 };
-      if (statusOrder[a.status] !== statusOrder[b.status]) {
-        return statusOrder[a.status] - statusOrder[b.status];
-      }
-      return a.deadline - b.deadline;
-    });
-     
-      setProposalList(proposals);
-    } catch (err) {
-      handleError(err, 'Failed to load proposals');
-    } finally {
-      setLoadingProposals(false);
-    }
+    // Sort active and ended proposals by status and deadline
+    const sortProposals = (proposals) => {
+      return proposals.sort((a, b) => {
+        const statusOrder = { 'Open': 0, 'Ended': 1, 'Closed': 2, 'Removed': 3 };
+        if (statusOrder[a.status] !== statusOrder[b.status]) {
+          return statusOrder[a.status] - statusOrder[b.status];
+        }
+        return a.deadline - b.deadline;
+      });
+    };
+    
+    // Combine all proposals with removed ones at the end
+    const allProposals = [
+      ...sortProposals(activeProposals),
+      ...sortProposals(endedProposals),
+      ...removedProposals
+    ];
+    
+    setProposalList(allProposals);
+  } catch (err) {
+    handleError(err, 'Failed to load proposals');
+  } finally {
+    setLoadingProposals(false);
+  }
   };
 
   const openProposalModal = async () => {
@@ -275,13 +327,52 @@ const fetchAllProposals = async () => {
   return (
     <div className="loading-proposals">
       <div className="loading-spinner"></div>
-      Loading your Voting History...
+      Loading Your Voting History...
     </div>
   );
 }
 
   if (error) {
     return (
+      <div className="container">
+      <div className="nav-buttons">
+          <button
+            onClick={() => window.location.href = '/vote'}
+            className="nav-button"
+            disabled={!account}
+          >
+            Vote Dashboard
+          </button>
+          <button
+            onClick={openProposalModal}
+            className="nav-button"
+            disabled={!account}
+          >
+            Proposal Details
+          </button>
+          <button
+            onClick={() => window.location.href = '/my-votes'}
+            className="nav-button"
+            disabled={!account}
+          >
+            My Votes
+          </button>
+          <button
+            onClick={() => window.location.href = '/my-nfts'}
+            className="nav-button"  
+            disabled={!account}
+          >
+            My NFTs
+          </button>
+          {isOwner && (
+            <button 
+              onClick={() => window.location.href = '/admin-panel'}
+              className="nav-button admin-button"
+            >
+              Admin Panel
+            </button>
+          )}
+        </div>
       <div className="error-container">
         <div className="error-box">
           <div className="error-flex">
@@ -289,7 +380,7 @@ const fetchAllProposals = async () => {
               <FaExclamationTriangle className="myvotes-error-faicon" />
             </div>
             <div className="error-message">
-              <p>
+              <p style={{color: '#161111'}}>
                 {error}
                 <button 
                   onClick={() => window.location.reload()} 
@@ -302,6 +393,7 @@ const fetchAllProposals = async () => {
           </div>
         </div>
       </div>
+    </div>
     );
   }
 
@@ -332,6 +424,14 @@ const fetchAllProposals = async () => {
           >
             My NFTs
           </button>
+          {isOwner && (
+            <button 
+              onClick={() => window.location.href = '/admin-panel'}
+              className="nav-button admin-button"
+            >
+              Admin Panel
+            </button>
+          )}
         </div>
       <div className="header">
         <h1 className="title">|| My Voting History ||</h1>
@@ -345,6 +445,7 @@ const fetchAllProposals = async () => {
           <Link 
             to="/vote" 
             className="btn btn-view"
+            style={{borderRadius: '2px', border: '#161111'}}
           >
             View Active Proposals
           </Link>
@@ -355,32 +456,29 @@ const fetchAllProposals = async () => {
             <ul className="list">
               {votedProposals.map((proposal) => (
                 <li key={proposal.id} className="list-item">
-                  <div className="list-row">
-                    <div className="list-main">
-                      <div className="list-title-row">
-                        <h3 className="list-title">
-                          <Link to={`/proposal/${proposal.id}`} className="list-title-link">
-                            Description: {proposal.description}
-                          </Link>
-                        </h3>
-                        <span className={`list-status ${proposal.status ? proposal.status.toLowerCase() : 'unknown'}`}>
-                          {proposal.status || 'Unknown'}
-                        </span>
-                      </div>
-                      <div className="list-info" >
-                        <p style={{ color: '#1d4ed8' }}>Total Votes: {proposal.totalVotes}</p>
-                        <p style={{ color: '#1d4ed8' }}>Ends: {formatDate(proposal.deadline)}</p>
-                      </div>
+                  <div className="proposal-header">
+                    <span className="proposal-description">
+                      Name: {proposal.description}
+                    </span>
+                    <span className={`proposal-status ${proposal.status ? proposal.status.toLowerCase() : 'unknown'}`}>
+                      {proposal.status || 'Unknown'}
+                    </span>
+                  </div>
+                  <div className="proposal-details">
+                    <div className="proposal-votes">
+                      Total Votes: {proposal.totalVotes}
                     </div>
-                    <div className="list-actions">
-                      <Link
-                        to={`/proposal/${proposal.id}`}
-                        className="btn btn-details"
-                      >
-                        <FaInfoCircle className="btn-details-icon" />
-                        View Details
-                      </Link>
+                    <div className="proposal-deadline" style={{marginBottom: '10px'}}>
+                      End: {formatDate(proposal.deadline)}
                     </div>
+                  </div>
+                  <div className="proposal-actions">
+                    <Link
+                      to={`/proposal/${proposal.id}`}
+                      className="btn-view-details"
+                    >
+                      View Description
+                    </Link>
                   </div>
                 </li>
               ))}
@@ -389,52 +487,12 @@ const fetchAllProposals = async () => {
         </div>
       )}
       
-      {showProposalModal && (
-        <div className="modal-overlay">
-          <div className="proposal-modal">
-            <div className="modal-header">
-              <h2>All Proposals</h2>
-              <button 
-                className="close-modal" 
-                onClick={() => setShowProposalModal(false)}
-              >
-                ×
-              </button>
-            </div>
-            
-            {loadingProposals ? (
-              <div className="loading-proposals">
-                <div className="loading-spinner"></div>
-                Loading proposals...
-              </div>
-            ) : (
-              <div className="proposal-list">
-                {proposalList?.length > 0 ? (
-                  proposalList.map(proposal => (
-                    <div key={proposal.id} className="proposal-item">
-                      <span className="proposal-id">Proposal #{proposal.id}</span>
-                      <span className="proposal-description" style={{ margin: 0 }}>{proposal.description}</span>
-                      <span className="proposal-status" status={proposal.status.toLowerCase()}>
-                        {proposal.status}
-                      </span>
-                      <Link 
-                        to={`/proposal/${proposal.id}`}
-                        className="view-details-btn"
-                        onClick={() => setShowProposalModal(false)}
-                      >
-                        <FaInfoCircle className="view-details-icon" />
-                         View Details
-                      </Link>
-                    </div>
-                  ))
-                ) : (
-                  <p>No proposals found</p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )} 
+      <ProposalModal 
+        show={showProposalModal}
+        onClose={() => setShowProposalModal(false)}
+        proposals={proposalList}
+        loading={loadingProposals}
+      />
     </div>
     
   );

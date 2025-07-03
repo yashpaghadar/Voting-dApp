@@ -69,12 +69,39 @@ async function main() {
     fs.writeFileSync(envPath, envContent.trim() + '\n');
     console.log('Updated .env file with new VOTING_CONTRACT_ADDRESS');
     
+    // Verify contract on block explorer if network supports it
+    if (hre.network.name !== 'hardhat' && hre.network.name !== 'localhost') {
+      console.log('\nVerifying contract on block explorer...');
+      try {
+        await hre.run('verify:verify', {
+          address: voting.address,
+          constructorArguments: [voteTokenAddress],
+        });
+        console.log('Contract verified successfully!');
+      } catch (error) {
+        if (error.message.includes('Already Verified')) {
+          console.log('Contract is already verified');
+        } else {
+          console.warn('Contract verification failed:', error.message);
+        }
+      }
+    }
+    
     console.log("\n=== Deployment Summary ===");
+    console.log("Network:", hre.network.name);
     console.log("Voting Contract:", voting.address);
     console.log("VoteToken Address:", voteTokenAddress);
     if (voteBadgeNFTAddress) {
       console.log("VoteBadgeNFT Address:", voteBadgeNFTAddress);
     }
+    
+    // Log contract interaction details
+    console.log("\n=== Contract Interaction Guide ===");
+    console.log("1. Create a proposal:", `await voting.createProposal(\"Your proposal description\")`);
+    console.log("2. Vote on a proposal:", `await voting.vote(proposalId)`);
+    console.log("3. Add a comment:", `await voting.addComment(proposalId, \"ipfs-hash-here\")`);
+    console.log("4. Get comments:", `await voting.getComments(proposalId)`);
+    
     console.log("\nDeployment completed successfully!");
     
   } catch (error) {

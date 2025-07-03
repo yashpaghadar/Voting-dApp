@@ -151,21 +151,23 @@
   min-width: 70px;
   text-align: center;
   margin-right: 15px;
+  background: white;
+  border: 1px solid #e0e7ef;
 }
 
-.proposal-status[status="Open"] {
-  background: rgba(124, 148, 255, 0.2);
-  color: #7c94ff;
+.proposal-status[status="Open || open || OPEN"] {
+  background: #defeda;
+  color: #22ed0b;
 }
 
-.proposal-status[status="Closed"] {
-  background: rgba(251, 144, 161, 0.2);
-  color: #fb90a1;
+.proposal-status[status="Closed || closed || CLOSED"] {
+  background: #edc6cd;
+  color: #ec3352;
 }
 
-.proposal-status[status="Removed"] {
-  background: rgba(79, 172, 254, 0.2);
-  color: #4facfe;
+.proposal-status[status="Removed || removed || REMOVED"] {
+  background: #e8f2fb;
+  color: #0973d7;
 }
 
 .view-details-btn {

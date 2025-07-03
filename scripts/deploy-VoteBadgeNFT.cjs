@@ -21,7 +21,7 @@ async function main() {
     baseURI  // This will be the base for all token URIs (e.g., https://gateway.pinata.cloud/ipfs/bafybeia5mi6nqajxb4bjhdhanlh7la25npdpzgytdyxmdmsmkt6lo5btdm/1.json)
   );
   
-  await nft.deployed();
+  await nft.deployed()
   
   console.log(`✅ VoteBadgeNFT deployed to: ${nft.address}`);
   console.log(`🔗 Base URI set to: ${baseURI}`);

@@ -9,12 +9,79 @@ import './NFTGallery.css';
 
 const votingBadgeNFTAbi = votingBadgeNFTArtifact.abi;
 const votingContractAbi = votingContractArtifact.abi;
+const Owner = import.meta.env.VITE_OWNER_ADDRESS;
 const NFTGallery = () => {
   const [nfts, setNfts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [account, setAccount] = useState(null);
   const [voting, setVoting] = useState(null);
+  const [isOwner, setIsOwner] = useState(false);
+
+  // Check if user is the contract owner
+  const checkIfOwner = async (contract, userAddress) => {
+    console.log('=== checkIfOwner called ===');
+    console.log('Contract exists:', !!contract);
+    console.log('User address:', userAddress);
+    
+    if (!contract) {
+      console.log('No contract provided to checkIfOwner');
+      setIsOwner(false);
+      return false;
+    }
+    if (!userAddress) {
+      console.log('No user address provided to checkIfOwner');
+      setIsOwner(false);
+      return false;
+    }
+    try {
+      console.log('Getting contract owner...');
+      const contractOwner = await contract.owner();
+      console.log('Contract owner address:', contractOwner);
+      console.log('Current user address:', userAddress);
+      
+      const isUserOwner = userAddress.toLowerCase() === contractOwner.toLowerCase();
+      console.log('Is user owner?', isUserOwner);
+      
+      setIsOwner(isUserOwner);
+      return isUserOwner;
+    } catch (error) {
+      console.error('Error checking owner status:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      setIsOwner(false);
+      return false;
+    }
+  };
+
+  // Debug effect to log state changes
+  useEffect(() => {
+    console.log('=== State Update ===');
+    console.log('Account:', account);
+    console.log('Voting contract:', voting ? 'Exists' : 'Not loaded');
+    console.log('Is owner:', isOwner);
+  }, [account, voting, isOwner]);
+
+  // Effect to check owner status when voting contract or account changes
+  useEffect(() => {
+    console.log('=== Owner check effect triggered ===');
+    console.log('Voting contract exists:', !!voting);
+    console.log('Account exists:', !!account);
+    
+    if (voting && account) {
+      console.log('Both contract and account available, checking owner status...');
+      checkIfOwner(voting, account).catch(error => {
+        console.error('Error in owner check effect:', error);
+        setIsOwner(false);
+      });
+    } else {
+      console.log('Contract or account not available, setting isOwner to false');
+      setIsOwner(false);
+    }
+  }, [voting, account]);
 
 
   useEffect(() => {
@@ -49,7 +116,9 @@ const NFTGallery = () => {
               votingContractAbi,
               signer
             );
+            console.log('Voting contract initialized');
             setVoting(votingContract);
+            // The owner check will be handled by the effect hook
           } catch (e) {
             setVoting(null);
             console.error('Failed to initialize voting contract:', e);
@@ -105,7 +174,7 @@ const NFTGallery = () => {
               results.forEach(tokenId => tokenId && tokenIds.push(tokenId));
             }
           } else {
-            // Process transfer events
+            // Process transfer eventss
           const ownedTokens = new Set();
           for (const event of events) {
             if (event.args && event.args.tokenId) {
@@ -179,46 +248,56 @@ const NFTGallery = () => {
     fetchNFTs();
   }, []);
 
-
   if (loading) {
     return (
       <div className="loading-proposals">
         <div className="loading-spinner"></div>
-        Loading proposals...
+        Loading Your NFTs...
       </div>
     );
   }
 
-
   if (error) {
     return (
       <div className="nftgallery-container">
-              <div className="nav-buttons">
-        <button 
-          onClick={() => window.location.href = '/vote'}
-          className="nav-button"
-        >
-          Vote Dashboard
-        </button>
-        <button 
-          onClick={() => window.location.href = '/proposal/1'}
-          className="nav-button"
-        >
-          Proposal Details
-        </button>
-        <button 
-          onClick={() => window.location.href = '/my-votes'}
-          className="nav-button"
-        >
-          My Votes
-        </button>
-        <button 
-          onClick={() => window.location.href = '/my-nfts'}
-          className="nav-button"
-        >
-          My NFTs
-        </button>
-      </div>
+        <div className="nav-buttons">
+          <button 
+            onClick={() => window.location.href = '/vote'}
+            className="nav-button"
+            disabled={!account}
+          >
+            Vote Dashboard
+          </button>
+          <button 
+            onClick={() => window.location.href = '/proposal/1'}
+            className="nav-button"
+            disabled={!account}
+          >
+            Proposal Details
+          </button>
+          <button 
+            onClick={() => window.location.href = '/my-votes'}
+            className="nav-button"
+            disabled={!account}
+          >
+            My Votes
+          </button>
+          <button 
+            onClick={() => window.location.href = '/my-nfts'}
+            className="nav-button"
+            disabled={!account}
+          >
+            My NFTs
+          </button>
+          {account === Owner && (
+            <button 
+              onClick={() => window.location.href = '/admin-panel'}
+              className="nav-button"
+            >
+              Admin Panel
+            </button>
+          )}
+        </div>
         <div className="nftgallery-main">
           <div className="nftgallery-error-header">
             <div className="nftgallery-flex-center">
@@ -232,7 +311,7 @@ const NFTGallery = () => {
                 <FaExclamationTriangle className="nftgallery-error-icon-lg" />
               </div>
               <h3 className="nftgallery-error-title-lg">Something went wrong</h3>
-              <p className="nftgallery-text-secondary-sm">{error}</p>
+              <p className="nftgallery-text-secondary-sm" style={{ color:'#161111'}}>{error}</p>
               <div className="nftgallery-margin-top">
                 <button
                   onClick={() => window.location.reload()}
@@ -250,56 +329,94 @@ const NFTGallery = () => {
 
   if (nfts.length === 0) {
     return (
-      <div className="nftgallery-container">
-              <div className="nav-buttons">
-        <button 
-          onClick={() => window.location.href = '/vote'}
-          className="nav-button"
-        >
-          Vote Dashboard
-        </button>
-        <button 
-          onClick={() => window.location.href = '/proposal/1'}
-          className="nav-button"
-        >
-          Proposal Details
-        </button>
-        <button 
-          onClick={() => window.location.href = '/my-votes'}
-          className="nav-button"
-        >
-          My Votes
-        </button>
-        <button 
-          onClick={() => window.location.href = '/my-nfts'}
-          className="nav-button"
-        >
-          My NFTs
-        </button>
-      </div>
-        <div className="nftgallery-main">
-          <div className="nftgallery-header">
-            <div className="nftgallery-flex-center">
-              <FaImage className="nftgallery-header-icon" />
-              <h2>Your Voting Badges</h2>
-            </div>
-          </div>
-          <div className="nftgallery-padding">
-            <div className="nftgallery-center-section-lg">
-              <div className="nftgallery-image-circle">
-                <FaImage className="nftgallery-image-icon" />
+      <div className="nftgallery-container" style={{ width: '100%' }}>
+        <div className="nav-buttons">
+          <button 
+            onClick={() => window.location.href = '/vote'}
+            className="nav-button"
+            disabled={!account}
+          >
+            Vote Dashboard
+          </button>
+          <button 
+            onClick={() => window.location.href = '/proposal/1'}
+            className="nav-button"
+            disabled={!account}
+          >
+            Proposal Details
+          </button>
+          <button 
+            onClick={() => window.location.href = '/my-votes'}
+            className="nav-button"
+            disabled={!account}
+          >
+            My Votes
+          </button>
+          <button 
+            onClick={() => window.location.href = '/my-nfts'}
+            className="nav-button"
+            disabled={!account}
+          >
+            My NFTs
+          </button>
+          {account === Owner && (
+            <button 
+              onClick={() => window.location.href = '/admin-panel'}
+              className="nav-button"
+            >
+              Admin Panel
+            </button>
+          )}
+        </div>
+        <div className="nftgallery-main-wide">
+          <div className="nftgallery-empty-state">
+            <div className="nftgallery-empty-illustration">
+              <div className="nftgallery-empty-badge">
+                <FaImage className="nftgallery-empty-icon" />
               </div>
-              <h3 className="nftgallery-title-lg">No voting badges yet</h3>
-              <p className="nftgallery-text-secondary-sm">
-                You haven't earned any voting badges yet. Participate in proposals to earn special badges!
-              </p>
-              <div className="nftgallery-margin-top">
-                <Link
-                  to="/vote"
-                  className="nftgallery-btn-primary"
-                >
-                  View Proposals
-                </Link>
+              <div className="nftgallery-empty-shine"></div>
+            </div>
+            
+            <h2 className="nftgallery-empty-title">No Voting Badges Yet</h2>
+            <p className="nftgallery-empty-text">
+              You haven't earned any voting badges yet. Participate in proposals and make your voice heard to earn special badges!
+            </p>
+            
+            <div className="nftgallery-empty-actions">
+              <Link to="/vote" className="nftgallery-empty-button secondary">
+                View Active Proposals
+              </Link>
+              <Link to="/how-it-works" className="nftgallery-empty-button secondary">
+                How It Works
+              </Link>
+            </div>
+            
+            <div className="nftgallery-empty-benefits">
+              <div className="nftgallery-benefit">
+                <div className="nftgallery-benefit-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                </div>
+                <span>Earn badges by voting on proposals</span>
+              </div>
+              <div className="nftgallery-benefit">
+                <div className="nftgallery-benefit-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                  </svg>
+                </div>
+                <span>Collect different badge types</span>
+              </div>
+              <div className="nftgallery-benefit">
+                <div className="nftgallery-benefit-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </div>
+                <span>Showcase your governance participation</span>
               </div>
             </div>
           </div>
@@ -335,7 +452,15 @@ const NFTGallery = () => {
         >
           My NFTs
         </button>
-      </div>
+        {account === Owner && (
+          <button 
+            onClick={() => window.location.href = '/admin-panel'}
+            className="nav-button"
+          >
+            Admin Panel
+          </button>
+        )}
+       </div>
       <div className="nftgallery-main-wide">
         <div className="nftgallery-header-card">
           <div className="nftgallery-header">

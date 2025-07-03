@@ -1,3 +1,103 @@
+/* Error State Styles */
+.nftgallery-error-header {
+  background: #fef2f2;
+  padding: 1.5rem;
+  border-bottom: 1px solid #fee2e2;
+  border-radius: 12px 12px 0 0;
+}
+
+.nftgallery-flex-center {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nftgallery-error-icon {
+  color: #ef4444;
+  font-size: 1.25rem;
+}
+
+.nftgallery-error-title {
+  color: #b91c1c;
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.nftgallery-padding {
+  padding: 2.5rem 1.5rem;
+  background: white;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.nftgallery-center-section {
+  max-width: 28rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.nftgallery-error-circle {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 50%;
+  background-color: #fef2f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  color: #dc2626;
+  font-size: 2rem;
+}
+
+.nftgallery-error-icon-lg {
+  font-size: 2.5rem;
+}
+
+.nftgallery-error-title-lg {
+  color: #1f2937;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.nftgallery-text-secondary-sm {
+  color: #6b7280;
+  font-size: 1rem;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.nftgallery-margin-top {
+  margin-top: 1.5rem;
+}
+
+.nftgallery-btn-primary {
+  background-color: #4f46e5;
+  color: white;
+  font-weight: 500;
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 0.9375rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.nftgallery-btn-primary:hover {
+  background-color: #4338ca;
+}
+
+.nftgallery-btn-primary:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+}
+
+/* Base Container */
 .nftgallery-container {
   min-height: 100vh;
   background: #f9fafb;
@@ -10,11 +110,190 @@
   margin: 0 auto;
 }
 
+/* Empty State Styles */
+.nftgallery-empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  max-width: 700px;
+  margin: 2rem auto;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.nftgallery-empty-illustration {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nftgallery-empty-badge {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 3rem;
+  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.3);
+  position: relative;
+  z-index: 2;
+  animation: float 6s ease-in-out infinite;
+}
+
+.nftgallery-empty-shine {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8) 0%, transparent 50%);
+  border-radius: 50%;
+  z-index: 3;
+  animation: shine 3s ease-in-out infinite alternate;
+}
+
+.nftgallery-empty-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+
+.nftgallery-empty-text {
+  color: #6b7280;
+  font-size: 1.1rem;
+  max-width: 500px;
+  margin: 0 auto 2rem;
+  line-height: 1.6;
+}
+
+.nftgallery-empty-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 3rem;
+}
+
+.nftgallery-empty-button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.nftgallery-empty-button.secondary {
+  background: white;
+  color: #4f46e5;
+  border: 2px solid #e5e7eb;
+}
+
+.nftgallery-empty-button.secondary:hover {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+}
+
+.nftgallery-empty-benefits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  max-width: 800px;
+  margin: 0 auto;
+  padding-top: 2rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+.nftgallery-benefit {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  text-align: left;
+  padding: 1rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.nftgallery-benefit:hover {
+  background: #f9fafb;
+  transform: translateY(-2px);
+}
+
+.nftgallery-benefit-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4f46e5;
+  flex-shrink: 0;
+}
+
+.nftgallery-benefit-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.nftgallery-benefit span {
+  font-size: 0.95rem;
+  color: #4b5563;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes shine {
+  from {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+/* Active state for nav buttons */
+.nav-button.active {
+  background: #4f46e5;
+  color: white;
+  border-color: #4f46e5;
+}
+
+.nav-button.active:hover {
+  background: #4338ca;
+  border-color: #4338ca;
+}
+
 .nftgallery-header {
   padding: 1.25rem 1rem;
+  border-radius: 20px;
   font-size: 2rem;
   color : white;
-  background: linear-gradient(to right, #2563eb, #1d4ed8);
+  background: linear-gradient(to right, #2563eb, #1b4eda);
 }
 
 .nftgallery-header-content {
@@ -33,6 +312,7 @@
   margin-top: 0.25rem;
   color: #bfdbfe;
   font-size: 0.875rem;
+  border-radius: 20px;
 }
 
 .nftgallery-back-btn {
@@ -56,13 +336,12 @@
 .nftgallery-wallet {
   padding: 0.75rem 1rem;
   background: #eff6ff;
-  border-bottom: 1px solid #dbeafe;
   color: #1e40af;
   font-size: 0.875rem;
+  border-radius: 20px;
 }
 
 .nftgallery-grid {
-  border-top: 1px solid #e5e7eb;
   padding: 1.25rem 1rem;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

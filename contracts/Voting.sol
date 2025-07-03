@@ -21,8 +21,11 @@ contract Voting {
     VoteBadgeNFT public voteBadgeNFT;
     uint256 public proposalCount;
     mapping(uint256 => Proposal) private proposals;
-    uint256 public constant VOTIVOTERIOD = 1 days; // 24 hours
+    uint256 public constant VOTIVOTERIOD = 2 days; // 2 days
     address public owner;
+    mapping(address => bool) public admins;
+    event AdminAdded(address indexed admin);
+    event AdminRemoved(address indexed admin);
     uint256 public constant PROPOSAL_FEE = 25 ether; // 25 VOTE (18 decimals)
     uint256 public constant VOTE_FEE = 10 ether; // 10 VOTE (18 decimals)
 
@@ -30,14 +33,39 @@ contract Voting {
     event Voted(uint256 indexed proposalId, address indexed voter, uint256 weight);
     event ProposalClosed(uint256 indexed proposalId, address winner, uint256 votes);
     event ProposalRemoved(uint256 indexed proposalId, string description);
+    event CommentAdded(uint256 indexed proposalId, address indexed commenter, string ipfsHash);
 
     constructor(address _VoteToken) {
         votetoken = IERC20(_VoteToken);
         owner = msg.sender;
+        admins[msg.sender] = true; // Make deployer an admin
     }
 
-    function setVoteBadgeNFT(address _voteBadgeNFT) external {
-        require(msg.sender == owner, "Only owner can set NFT contract");
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+    
+    modifier onlyAdmin() {
+        require(admins[msg.sender] || msg.sender == owner, "Not an admin");
+        _;
+    }
+
+    function addAdmin(address _admin) external onlyOwner {
+        require(_admin != address(0), "Invalid address");
+        require(!admins[_admin], "Already an admin");
+        admins[_admin] = true;
+        emit AdminAdded(_admin);
+    }
+    
+    function removeAdmin(address _admin) external onlyOwner {
+        require(admins[_admin], "Not an admin");
+        require(_admin != owner, "Cannot remove owner");
+        admins[_admin] = false;
+        emit AdminRemoved(_admin);
+    }
+
+    function setVoteBadgeNFT(address _voteBadgeNFT) external onlyAdmin {
         require(_voteBadgeNFT != address(0), "Invalid address");
         voteBadgeNFT = VoteBadgeNFT(_voteBadgeNFT);
     }
@@ -57,15 +85,11 @@ contract Voting {
 
 
     function _getRandomNFTType() private view returns (uint256) {
-        // This is a simple pseudo-random number generator
-        // Not suitable for production use - consider using Chainlink VRF for production
         uint256 random = uint256(keccak256(abi.encodePacked(
             block.timestamp,
-            block.prevrandao, // Replaced block.difficulty with block.prevrandao
+            block.prevrandao, 
             msg.sender
         ))) % 3;
-        
-        // Return a number between 1-3
         return random + 1;
     }
 
@@ -100,18 +124,8 @@ contract Voting {
         
         emit Voted(proposalId, msg.sender, 1);
     }
-
-    function closeProposal(uint256 proposalId) external {
-        Proposal storage p = proposals[proposalId];
-        require(block.timestamp >= p.deadline, "Voting still ongoing");
-        require(!p.closed, "Already closed");
-        p.closed = true;
-        // For single winner, just set winner as address(0) (not meaningful in this context)
-        p.winner = address(0);
-        emit ProposalClosed(proposalId, p.winner, p.votes);
-    }
-
-    function getResults(uint256 proposalId) external view returns (
+   
+   function getResults(uint256 proposalId) external view returns (
         string memory description,
         uint256 totalVotes,
         bool closed,
@@ -136,8 +150,13 @@ contract Voting {
         return voteBadgeNFT.hasBadge(voter, proposalId);
     }
 
-    function removeProposalByName(string calldata name) external {
-        require(msg.sender == owner, "Only owner can remove proposals");
+    // Mapping from proposal ID to array of IPFS hashes
+    mapping(uint256 => string[]) public proposalComments;
+    
+    // Mapping from proposal ID to commenter addresses
+    mapping(uint256 => mapping(address => bool)) public hasCommented;
+    
+    function removeProposalByName(string calldata name) external onlyAdmin {
         for (uint256 i = 1; i <= proposalCount; i++) {
             Proposal storage p = proposals[i];
             if (keccak256(bytes(p.description)) == keccak256(bytes(name)) && !p.removed) {
@@ -147,5 +166,29 @@ contract Voting {
             }
         }
         revert("Proposal not found");
+    }
+
+    function addComment(uint256 proposalId, string calldata ipfsHash) external {
+        require(proposalId > 0 && proposalId <= proposalCount, "Invalid proposal ID");
+        require(bytes(ipfsHash).length > 0, "IPFS hash cannot be empty");
+        
+        Proposal storage p = proposals[proposalId];
+        require(!p.removed, "Proposal has been removed");
+        
+        // Store the IPFS hash
+        proposalComments[proposalId].push(ipfsHash);
+        hasCommented[proposalId][msg.sender] = true;
+        
+        emit CommentAdded(proposalId, msg.sender, ipfsHash);
+    }
+
+    function getComments(uint256 proposalId) external view returns (string[] memory) {
+        require(proposalId > 0 && proposalId <= proposalCount, "Invalid proposal ID");
+        return proposalComments[proposalId];
+    }
+    
+    function getCommentCount(uint256 proposalId) external view returns (uint256) {
+        require(proposalId > 0 && proposalId <= proposalCount, "Invalid proposal ID");
+        return proposalComments[proposalId].length;
     }
 }

@@ -88,8 +88,6 @@ const VotingResultsChart = ({ proposals }) => {
       x: {
         ticks: {
           autoSkip: false,
-          maxRotation: 45,
-          minRotation: 45
         }
       }
     }
