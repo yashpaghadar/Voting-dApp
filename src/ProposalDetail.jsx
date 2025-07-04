@@ -215,11 +215,11 @@ const ProposalDetail = () => {
         console.error('Blockchain transaction error:', error);
         
         if (error.code === 4001 || error.message?.includes('user rejected')) {
-          showNotification('Transaction was rejected', 'error');
+          showNotification('Transaction was rejected by user', 'error');
         } else if (error.message?.includes('proposal does not exist')) {
           showNotification('This proposal no longer exists', 'error');
         } else if (error.message?.includes('proposal is removed')) {
-          showNotification('This proposal has been removed', 'error');
+          showNotification('This proposal has been removed by admin', 'error');
           // Refresh proposal data in case it was removed
           loadProposalData(voting, account);
         } else {
@@ -748,7 +748,7 @@ const ProposalDetail = () => {
             <div className="loading-spinner">
             </div>
             <h3 className="processing-text">{transactionStatus.title}</h3>
-            <p>{transactionStatus.message}</p>          
+            <p style={{ color: '#94a3b8' }}>{transactionStatus.message}</p>          
           </div>
         </div>
       )}

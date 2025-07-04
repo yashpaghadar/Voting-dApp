@@ -58,11 +58,11 @@
 }
 
 .notification-icon-success {
-  color: #11fa47;
+  color: #b8ffc9;
 }
 
 .notification-icon-error {
-  color: #f75f5f;
+  color: #eda5a5;
 }
 
 .notification-icon-warning {
@@ -70,7 +70,7 @@
 }
 
 .notification-icon-info {
-  color: #2f7dfb;
+  color: #a6c2f0;
 }
 
 .notification-text {

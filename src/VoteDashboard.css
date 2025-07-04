@@ -1,3 +1,73 @@
+/* Notification Styles */
+.notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  min-width: 300px;
+  max-width: 90%;
+  border-radius: 8px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.3s ease-out;
+  color: white;
+}
+
+.notification-success {
+  background-color: #10B981;
+  border-left: 4px solid #059669;
+}
+
+.notification-error {
+  background-color: #EF4444;
+  border-left: 4px solid #DC2626;
+}
+
+.notification-warning {
+  background-color: #F59E0B;
+  border-left: 4px solid #D97706;
+}
+
+.notification-info {
+  background-color: #3B82F6;
+  border-left: 4px solid #2563EB;
+}
+
+.notification-icon {
+  margin-right: 12px;
+  font-size: 20px;
+}
+
+.notification-content {
+  flex: 1;
+}
+
+.notification-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.notification-message {
+  font-size: 0.9em;
+  opacity: 0.9;
+  margin: 0;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 /* Global h2 Styles */
 h2 {
   margin: 0;
@@ -860,7 +930,7 @@ body, html {
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   padding: 1.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   transition: box-shadow 0.3s, transform 0.2s;
   overflow: hidden;
@@ -1494,7 +1564,6 @@ table tr:last-child td {
 
 /* Proposal Form Styles */
 .proposal-form-container {
-  margin-top: 1rem;
   padding: 1.5rem;
   background: white;
   border-radius: 0.5rem;
@@ -1507,7 +1576,7 @@ table tr:last-child td {
   font-weight: 600;
   margin-bottom: 1rem;
   color: #1f2937;
-  justify-content: flex-start;
+  justify-content: center;
   margin-left: 0.5rem;
 }
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
+import { FaInfoCircle, FaCheck, FaExclamationTriangle, FaVoteYea, FaClock, FaTimes, FaSpinner, FaChartBar, FaWallet, FaImage } from 'react-icons/fa';
 import votingAbiData from './abi/Voting.json';
-import { FaVoteYea, FaInfoCircle, FaExclamationTriangle, FaCheck, FaClock, FaTimes, FaSpinner, FaChartBar, FaWallet, FaImage } from 'react-icons/fa';
 import Notification from './components/Notification';
 import ProposalModal from './components/ProposalModal';
 import { Link, useNavigate } from 'react-router-dom';
@@ -136,12 +136,20 @@ const VoteDashboard = () => {
       clearTimeout(notificationTimeout);
     }
     
-    setNotification({
+    // Ensure we have a valid notification type
+    const notificationType = ['success', 'error', 'warning', 'info'].includes(type) ? type : 'info';
+    
+    // Create a new notification object
+    const newNotification = {
       show: true,
-      title,
-      message,
-      type
-    });
+      title: title || '',
+      message: message || '',
+      type: notificationType
+    };
+    
+    console.log('Showing notification:', newNotification);
+    
+    setNotification(newNotification);
 
     // Auto-hide after 5 seconds
     const timeoutId = setTimeout(() => {
@@ -149,6 +157,9 @@ const VoteDashboard = () => {
     }, 5000);
     
     setNotificationTimeout(timeoutId);
+    
+    // Return cleanup function
+    return () => clearTimeout(timeoutId);
   };
 
   const [provider, setProvider] = useState();
@@ -180,6 +191,7 @@ const VoteDashboard = () => {
   const [isOwner, setIsOwner] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [proposalName, setProposalName] = useState("");
+  const [showNFTModal, setShowNFTModal] = useState(false);
   const navigate = useNavigate();
 
   // Cleanup notification timeout on unmount
@@ -464,31 +476,50 @@ const VoteDashboard = () => {
     }
   };
 
-  // Notification component
+  // Notification component with icons
   const Notification = () => {
     if (!notification.show) return null;
 
-    const bgColor = {
-      info: 'bg-blue-100 border-blue-400 text-blue-700',
-      success: 'bg-green-100 border-green-400 text-green-700',
-      error: 'bg-red-100 border-red-400 text-red-700',
-      warning: 'bg-yellow-100 border-yellow-400 text-yellow-700'
-    }[notification.type] || 'bg-blue-100 border-blue-400 text-blue-700';
+    const notificationStyles = {
+      info: {
+        bg: 'bg-blue-100 border-blue-400 text-blue-700',
+        icon: <FaInfoCircle className="text-blue-500 text-xl mr-2" />
+      },
+      success: {
+        bg: 'bg-green-100 border-green-400 text-green-700',
+        icon: <FaCheck className="text-green-500 text-xl mr-2" />
+      },
+      error: {
+        bg: 'bg-red-100 border-red-400 text-red-700',
+        icon: <FaExclamationTriangle className="text-red-500 text-xl mr-2" />
+      },
+      warning: {
+        bg: 'bg-yellow-100 border-yellow-400 text-yellow-700',
+        icon: <FaExclamationTriangle className="text-yellow-500 text-xl mr-2" />
+      }
+    };
+
+    const style = notificationStyles[notification.type] || notificationStyles.info;
 
     return (
-      <div className={`fixed top-4 right-4 p-4 rounded border-l-4 ${bgColor} shadow-lg z-50 min-w-64`}>
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="font-bold">{notification.title}</h3>
-            <p className="text-sm">{notification.message}</p>
+      <div className={`fixed top-4 right-4 p-4 rounded border-l-4 ${style.bg} shadow-lg z-50 min-w-64`}>
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            {style.icon}
           </div>
-          <button 
-            onClick={() => setNotification(prev => ({ ...prev, show: false }))}
-            className="ml-4 text-lg font-bold"
-            aria-label="Close notification"
-          >
-            &times;
-          </button>
+          <div className="flex-1">
+            <div className="flex justify-between items-start">
+              <h3 className="font-bold">{notification.title}</h3>
+              <button 
+                onClick={() => setNotification(prev => ({ ...prev, show: false }))}
+                className="ml-4 text-lg font-bold opacity-70 hover:opacity-100"
+                aria-label="Close notification"
+              >
+                &times;
+              </button>
+            </div>
+            <p className="text-sm mt-1">{notification.message}</p>
+          </div>
         </div>
       </div>
     );
@@ -671,28 +702,90 @@ const VoteDashboard = () => {
     }
   };
 
+  const checkTokenBalance = async (requiredAmount) => {
+    try {
+      const tokenContract = new ethers.Contract(
+        VOTE_TOKEN_ADDRESS,
+        ['function balanceOf(address) view returns (uint256)'],
+        signer
+      );
+      const balance = await tokenContract.balanceOf(account);
+      const requiredBalance = parseEther(ethers, requiredAmount.toString());
+      
+      if (balance.lt(requiredBalance)) {
+        throw { 
+          code: 'INSUFFICIENT_BALANCE', 
+          message: `You need at least ${requiredAmount} VOTE tokens to perform this action` 
+        };
+      }
+      return true;
+    } catch (error) {
+      console.error('Token balance check failed:', error);
+      throw error;
+    }
+  };
+
   const handleVote = async (displayId) => {
     let tx;
     try {
+      // Set initial loading state
       setIsTxPending(true);
+      setTxStatus('Checking token balance...');
+      
+      // Check token balance first
+      await checkTokenBalance(VOTE_FEE);
+      
       if (votedProposals.size > 0) {
         showNotification('Already Voted', 'You have already voted in this session', 'error');
         return;
       }
       
-      setIsVotingLoading(true);
-      setTxStatus('Voting...');
-      
       // Check token approval
       if (needsApproval) {
-        await approveTokens();
-        setNeedsApproval(false);
+        // Set loading state for token approval
+        setIsVotingLoading(true);
+        setTxStatus('Approving tokens. Please confirm in your wallet...');
+        
+        try {
+          await approveTokens();
+          setNeedsApproval(false);
+          showNotification('Success', 'Token approval successful', 'success');
+          
+          // Update status and add small delay for UX
+          setTxStatus('Token approved. Processing your vote...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+        } catch (error) {
+          console.error('Token approval failed:', error);
+          showNotification('Error', 'Token approval failed. Please try again.', 'error');
+          throw error; // Re-throw to be caught by the outer catch
+        } finally {
+          // Only clear the loading state if we're not proceeding to vote
+          if (needsApproval) {
+            setIsVotingLoading(false);
+            setIsTxPending(false);
+          }
+        }
       }
       
+      // Set voting loading state
+      setTxStatus('Processing your vote. Please confirm in your wallet...');
+      setIsVotingLoading(true);
+      
       // Submit vote
-      tx = await voting.vote(displayId);
-      const receipt = await tx.wait();
-      setLastTransactionHash(receipt.transactionHash);
+      try {
+        tx = await voting.vote(displayId);
+        setTxStatus('Waiting for transaction confirmation. This may take a moment...');
+        const receipt = await tx.wait();
+        setLastTransactionHash(receipt.transactionHash);
+      } catch (error) {
+        console.error('Voting failed:', error);
+        showNotification('Error', 'Voting failed. Please try again.', 'error');
+        throw error; // Re-throw to be caught by the outer catch
+      }
+      
+      // Update UI with success state
+      setTxStatus('Updating voting data...');
       
       // Refresh data from contract
       await fetchProposals(voting);
@@ -708,8 +801,18 @@ const VoteDashboard = () => {
       // Show NFT modal
       setShowNFTModal(true);
       
+      // Update token balance after successful vote
+      try {
+        await checkTokenBalance(VOTE_FEE);
+      } catch (error) {
+        // Just log the error, don't fail the vote
+        console.warn('Failed to check token balance after vote:', error);
+        showNotification('Warning', 'You may not have enough tokens for another vote', 'warning');
+      }
+      
       setHasVoted(true);
-      window.location.reload();
+      // No need to reload the page, we've already updated the state
+      // window.location.reload();
     } catch (error) {
       console.error('Voting error:', error);
       
@@ -863,8 +966,8 @@ const VoteDashboard = () => {
     }
     
     try {
-      setIsTxPending(true);
       setIsCreatingProposal(true);
+      setTxStatus('Checking wallet and balance...');
       
       // Check if wallet is connected
       if (!account) {
@@ -872,33 +975,16 @@ const VoteDashboard = () => {
       }
       
       // Check token balance first
-      try {
-        const tokenContract = new ethers.Contract(
-          VOTE_TOKEN_ADDRESS,
-          ['function balanceOf(address) view returns (uint256)'],
-          signer
-        );
-        const balance = await tokenContract.balanceOf(account);
-        const requiredBalance = parseEther(ethers, PROPOSAL_FEE.toString());
-        
-        if (balance.lt(requiredBalance)) {
-          throw { 
-            code: 'INSUFFICIENT_BALANCE', 
-            message: `You need at least ${PROPOSAL_FEE} VOTE to create a proposal` 
-          };
-        }
-      } catch (error) {
-        if (error.code === 'NETWORK_ERROR' || error.code === 'NETWORK_ERROR') {
-          throw { code: 'NETWORK_ERROR', message: 'Failed to connect to the blockchain. Please check your network connection.' };
-        }
-        throw error;
-      }
+      await checkTokenBalance(PROPOSAL_FEE);
       
       // Handle token approval if needed
       if (needsApproval) {
         try {
+          setTxStatus('Approving VOTE tokens...');
           await approveTokens();
           setNeedsApproval(false);
+          // Small delay to ensure the approval is processed
+          await new Promise(resolve => setTimeout(resolve, 2000));
         } catch (error) {
           if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
             throw { code: 'REJECTED_APPROVAL', message: 'Token approval was rejected' };
@@ -907,10 +993,20 @@ const VoteDashboard = () => {
         }
       }
       
-      setTxStatus('Creating proposal...');
+      // Create the proposal
       try {
+        setTxStatus('Creating proposal...');
+        setIsTxPending(true);
         const tx = await voting.createProposal(proposalName);
         const receipt = await tx.wait();
+        
+        // Update token balance after successful proposal creation
+        try {
+          await checkTokenBalance(PROPOSAL_FEE);
+        } catch (error) {
+          // Just log the error, don't fail the proposal creation
+          console.warn('Failed to check token balance after proposal creation:', error);
+        }
         
         showNotification('Success', 'Proposal created successfully!', 'success');
         setProposalName('');
@@ -977,10 +1073,9 @@ const VoteDashboard = () => {
     if (!account || !signer) return;
     
     setApproving(true);
-    setTxStatus({ message: 'Approving VOTE tokens...', isError: false });
+    setTxStatus('Approving VOTE tokens...');
     
     try {
-      setIsTxPending(true);
       const tokenContract = new ethers.Contract(
         VOTE_TOKEN_ADDRESS,
         ['function approve(address,uint256)'],
@@ -994,9 +1089,14 @@ const VoteDashboard = () => {
       
       await tx.wait();
       setNeedsApproval(false);
-      setNotification('Success','VOTE tokens approved successfully!', 'success');
+      showNotification('Success', 'VOTE tokens approved successfully!', 'success');
+      return true;
     } catch (error) {
-      setNotification('Approval failed', 'Unknown error', 'error');
+      console.error('Approval error:', error);
+      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+        throw { code: 'REJECTED_APPROVAL', message: 'Token approval was rejected' };
+      }
+      throw error;
       
     } finally {
       setIsTxPending(false);
@@ -1219,19 +1319,21 @@ if (loadingProposals) {
         </div>
       </nav>
 
-      {notification && notification.show && (
-        <div className={`notification notification-${notification.type || 'success'}`}>
+      {notification.show && (
+        <div className={`notification notification-${notification.type || 'info'}`}>
           <div className="notification-content">
             {notification.type === 'error' ? (
               <FaExclamationTriangle className="notification-icon" />
-            ) : notification.type === 'info' || notification.type === 'wallet' ? (
+            ) : notification.type === 'info' ? (
               <FaInfoCircle className="notification-icon" />
+            ) : notification.type === 'warning' ? (
+              <FaExclamationTriangle className="notification-icon" />
             ) : (
               <FaCheck className="notification-icon" />
             )}
-            <div className="notification-text">
-              <span className="notification-title">{notification.title || ''}</span>
-              {notification.description && <p className="notification-description">{notification.description}</p>}
+            <div>
+              {notification.title && <span className="notification-title">{notification.title}</span>}
+              {notification.message && <p className="notification-message">{notification.message}</p>}
             </div>
           </div>
         </div>
@@ -1608,6 +1710,7 @@ if (loadingProposals) {
       {showRemoveForm && (
         <div className="proposal-form-container">
           <h2 className="proposal-form-title">Remove Proposal</h2>
+          <p className="proposal-form-text">Proposal Remove by Name.</p>
           <form onSubmit={handleRemoveProposal}>
             <div>
               <input
