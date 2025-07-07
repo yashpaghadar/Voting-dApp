@@ -11,6 +11,14 @@
   ],
   "routes": [
     {
+      "src": "/nft-metadata/(.*)",
+      "dest": "/nft-metadata/$1"
+    },
+    {
+      "src": "/NFT_IMG/(.*)",
+      "dest": "/NFT_IMG/$1"
+    },
+    {
       "src": "/assets/(.*)",
       "dest": "/assets/$1"
     },
