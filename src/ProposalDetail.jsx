@@ -121,7 +121,19 @@ const ProposalDetail = () => {
       showNotification('This proposal has been removed by admin', 'error');
       return;
     }
+    const currentTime = Math.floor(Date.now() / 1000);
+    const isProposalOpen = currentTime < proposal.deadline && !proposal.closed && !proposal.removed;
     
+    if (!isProposalOpen) {
+      let status = 'closed';
+      if (proposal.removed) {
+      status = 'removed';
+    } else if (currentTime >= proposal.deadline) {
+      status = 'expired';
+    }
+    showNotification(`Cannot add comment: Proposal is ${status}`, 'error');
+    return;
+  } 
     // Validate input
     if (!newComment.trim()) {
       showNotification('Please enter a comment', 'error');
