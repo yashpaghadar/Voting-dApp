@@ -336,8 +336,49 @@ const VoteDashboard = () => {
           return;
         }
 
-        // Initialize provider and signer
+        // Check if we need to switch to Sepolia
+        const sepoliaChainId = '0xaa36a7'; // 11155111 in hex
+        try {
+          // Try to switch to Sepolia
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: sepoliaChainId }],
+          });
+        } catch (switchError) {
+          // This error code indicates that the chain has not been added to MetaMask
+          if (switchError.code === 4902) {
+            try {
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: sepoliaChainId,
+                  chainName: 'Sepolia Test Network',
+                  nativeCurrency: {
+                    name: 'Sepolia ETH',
+                    symbol: 'SEP',
+                    decimals: 18
+                  },
+                  rpcUrls: [i],
+                  blockExplorerUrls: ['https://sepolia.etherscan.io']
+                }],
+              });
+            } catch (addError) {
+              console.error('Failed to add Sepolia network:', addError);
+              showNotification('Network Error', 'Failed to add Sepolia network to MetaMask', 'error');
+              return;
+            }
+          } else {
+            console.error('Failed to switch to Sepolia:', switchError);
+            showNotification('Network Error', 'Please switch to Sepolia Test Network in MetaMask', 'error');
+            return;
+          }
+        }
+
+        // Initialize provider after ensuring correct network
         provider = new ethers.providers.Web3Provider(window.ethereum);
+        
+        // Request account access and get signer
+        const accounts = await provider.send("eth_requestAccounts", []);
         signer = provider.getSigner();
         
         if (!VOTING_CONTRACT_ADDRESS) {
@@ -346,6 +387,15 @@ const VoteDashboard = () => {
         }
 
         console.log('Initializing contract with address:', VOTING_CONTRACT_ADDRESS);
+        
+        // Create a read-only contract instance first
+        const readOnlyContract = new ethers.Contract(
+          VOTING_CONTRACT_ADDRESS,
+          votingAbi,
+          provider
+        );
+        
+        // Create a signer contract instance
         votingContract = new ethers.Contract(
           VOTING_CONTRACT_ADDRESS,
           votingAbi,
@@ -358,12 +408,39 @@ const VoteDashboard = () => {
           setProvider(provider);
           
           // Load proposals
-          await loadProposals(votingContract);
+          await loadProposals(readOnlyContract);
           
           // Check if wallet is already connected
           const accounts = await provider.listAccounts();
           if (accounts.length > 0) {
-            setAccount(accounts[0]);
+            const currentAccount = accounts[0].toLowerCase();
+            setAccount(currentAccount);
+            
+            // Check if current account is admin or owner
+            try {
+              console.log('Checking owner...');
+              const owner = await readOnlyContract.owner();
+              const isOwner = owner.toLowerCase() === currentAccount;
+              console.log('Owner address:', owner, 'Current account:', currentAccount);
+              
+              console.log('Checking admin status...');
+              const isAdmin = await readOnlyContract.admins(currentAccount);
+              
+              console.log(`Account ${currentAccount} - isOwner: ${isOwner}, isAdmin: ${isAdmin}`);
+              setIsOwner(isOwner);
+              setIsAdmin(isAdmin || isOwner); // Owner is also considered admin
+            } catch (error) {
+              console.error('Error checking admin status:', error);
+              // Try with the signer contract if read-only fails
+              try {
+                const owner = await votingContract.owner();
+                const isOwner = owner.toLowerCase() === currentAccount;
+                setIsOwner(isOwner);
+                setIsAdmin(isOwner); // At least set owner as admin
+              } catch (e) {
+                console.error('Fallback check also failed:', e);
+              }
+            }
           }
         }
       } catch (error) {
@@ -387,9 +464,20 @@ const VoteDashboard = () => {
         const newAccount = accounts[0];
         setAccount(newAccount);
         
-        // Reload proposals when account changes
+        // Check admin status for the new account
         if (voting) {
-          await loadProposals(voting);
+          try {
+            const isOwner = await voting.owner() === newAccount;
+            const isAdmin = await voting.admins(newAccount);
+            console.log(`Account changed to ${newAccount} - isOwner: ${isOwner}, isAdmin: ${isAdmin}`);
+            setIsOwner(isOwner);
+            setIsAdmin(isAdmin || isOwner);
+            
+            // Reload proposals
+            await loadProposals(voting);
+          } catch (error) {
+            console.error('Error checking admin status after account change:', error);
+          }
         }
       }
     };
@@ -698,7 +786,7 @@ const VoteDashboard = () => {
       setLoading(false);
     } catch (e) {
       console.error("Error fetching proposals:", e);
-      setLoading(false);ss
+      setLoading(false);
     }
   };
 
@@ -965,46 +1053,62 @@ const VoteDashboard = () => {
       return;
     }
     
+    // Reset states
+    setError(null);
+    setIsCreatingProposal(true);
+    setTxStatus('Initializing...');
+    
     try {
-      setIsCreatingProposal(true);
-      setTxStatus('Checking wallet and balance...');
-      
       // Check if wallet is connected
       if (!account) {
         throw { code: 'NO_ACCOUNT', message: 'Please connect your wallet first' };
       }
       
       // Check token balance first
+      setTxStatus('Checking token balance...');
       await checkTokenBalance(PROPOSAL_FEE);
       
       // Handle token approval if needed
       if (needsApproval) {
         try {
+          // Show loading for token approval
           setTxStatus('Approving VOTE tokens...');
-          await approveTokens();
+          setIsTxPending(true);
+          
+          const approvalTx = await approveTokens();
+          // Wait for the approval transaction to be mined
+          await approvalTx.wait();
+          
           setNeedsApproval(false);
+          setIsTxPending(false); // Hide loading after approval is done
+          
           // Small delay to ensure the approval is processed
           await new Promise(resolve => setTimeout(resolve, 2000));
         } catch (error) {
+          console.error('Token approval error:', error);
+          setIsTxPending(false); // Hide loading on error
           if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
             throw { code: 'REJECTED_APPROVAL', message: 'Token approval was rejected' };
           }
-          throw error;
+          throw new Error(`Approval failed: ${error.message || 'Unknown error'}`);
         }
       }
       
       // Create the proposal
       try {
-        setTxStatus('Creating proposal...');
-        setIsTxPending(true);
+        setTxStatus('Creating proposal on blockchain...');
+        setIsTxPending(true); // Show loading for proposal creation
+        
         const tx = await voting.createProposal(proposalName);
+        setTxStatus('Waiting for transaction confirmation...');
+        
         const receipt = await tx.wait();
+        setIsTxPending(false); // Hide loading after proposal is created
         
         // Update token balance after successful proposal creation
         try {
           await checkTokenBalance(PROPOSAL_FEE);
         } catch (error) {
-          // Just log the error, don't fail the proposal creation
           console.warn('Failed to check token balance after proposal creation:', error);
         }
         
@@ -1013,6 +1117,7 @@ const VoteDashboard = () => {
         setShowInput(false);
         await fetchProposals(voting);
       } catch (error) {
+        setIsTxPending(false); // Hide loading on error
         if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
           throw { code: 'TRANSACTION_REJECTED', message: 'Transaction was rejected' };
         }
@@ -1385,6 +1490,19 @@ if (loadingProposals) {
                   if (window.ethereum) {
                     setIsConnectingWallet(true);
                     try {
+                      // Ensure we're on Sepolia
+                      const sepoliaChainId = '0xaa36a7';
+                      try {
+                        await window.ethereum.request({
+                          method: 'wallet_switchEthereumChain',
+                          params: [{ chainId: sepoliaChainId }],
+                        });
+                      } catch (switchError) {
+                        console.error('Failed to switch to Sepolia:', switchError);
+                        showNotification('Network Error', 'Please switch to Sepolia Test Network in MetaMask', 'error');
+                        return;
+                      }
+                      
                       const _provider = new ethers.providers.Web3Provider(window.ethereum);
                       await window.ethereum.request({ method: 'eth_requestAccounts' });
                       const _signer = await _provider.getSigner();

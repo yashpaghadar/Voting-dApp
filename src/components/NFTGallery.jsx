@@ -10,6 +10,7 @@ import './NFTGallery.css';
 const votingBadgeNFTAbi = votingBadgeNFTArtifact.abi;
 const votingContractAbi = votingContractArtifact.abi;
 const Owner = import.meta.env.VITE_OWNER_ADDRESS;
+console.log("Owner: ",Owner);
 const NFTGallery = () => {
   const [nfts, setNfts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,26 +23,46 @@ const NFTGallery = () => {
   const checkIfOwner = async (contract, userAddress) => {
     console.log('=== checkIfOwner called ===');
     console.log('Contract exists:', !!contract);
-    console.log('User address:', userAddress);
+    
+    // Normalize addresses for comparison
+    const normalizedUserAddress = userAddress?.toLowerCase();
+    const normalizedEnvOwner = import.meta.env.VITE_OWNER_ADDRESS?.toLowerCase();
+    
+    console.log('User address (normalized):', normalizedUserAddress);
+    console.log('Env VITE_OWNER_ADDRESS (normalized):', normalizedEnvOwner);
     
     if (!contract) {
       console.log('No contract provided to checkIfOwner');
       setIsOwner(false);
       return false;
     }
+    
     if (!userAddress) {
       console.log('No user address provided to checkIfOwner');
       setIsOwner(false);
       return false;
     }
+    
     try {
       console.log('Getting contract owner...');
       const contractOwner = await contract.owner();
-      console.log('Contract owner address:', contractOwner);
-      console.log('Current user address:', userAddress);
+      const normalizedContractOwner = contractOwner?.toLowerCase();
       
-      const isUserOwner = userAddress.toLowerCase() === contractOwner.toLowerCase();
-      console.log('Is user owner?', isUserOwner);
+      console.log('Contract owner address (original):', contractOwner);
+      console.log('Contract owner address (normalized):', normalizedContractOwner);
+      console.log('Current user address (normalized):', normalizedUserAddress);
+      
+      // Check against contract owner
+      const isContractOwner = normalizedUserAddress === normalizedContractOwner;
+      console.log('Is user contract owner?', isContractOwner);
+      
+      // Also check against environment variable for debugging
+      const isEnvOwner = normalizedUserAddress === normalizedEnvOwner;
+      console.log('Is user owner (from env)?', isEnvOwner);
+      
+      // Consider user owner if either check passes
+      const isUserOwner = isContractOwner || isEnvOwner;
+      console.log('Final isUserOwner:', isUserOwner);
       
       setIsOwner(isUserOwner);
       return isUserOwner;
@@ -289,7 +310,7 @@ const NFTGallery = () => {
           >
             My NFTs
           </button>
-          {account === Owner && (
+          {account && Owner && account.toLowerCase() === Owner.toLowerCase() && (
             <button 
               onClick={() => window.location.href = '/admin-panel'}
               className="nav-button"
@@ -359,7 +380,7 @@ const NFTGallery = () => {
           >
             My NFTs
           </button>
-          {account === Owner && (
+          {account && Owner && account.toLowerCase() === Owner.toLowerCase() && (
             <button 
               onClick={() => window.location.href = '/admin-panel'}
               className="nav-button"
@@ -452,7 +473,7 @@ const NFTGallery = () => {
         >
           My NFTs
         </button>
-        {account === Owner && (
+        {account && Owner && account.toLowerCase() === Owner.toLowerCase() && (
           <button 
             onClick={() => window.location.href = '/admin-panel'}
             className="nav-button"

@@ -51,16 +51,31 @@ async function main() {
     
     // If VoteBadgeNFT address exists, set it in the Voting contract
     const voteBadgeNFTAddress = process.env.VITE_VOTE_BADGE_NFT_ADDRESS;
-    if (voteBadgeNFTAddress) {
-      console.log("Setting VoteBadgeNFT address in Voting contract...");
-      await voting.setVoteBadgeNFT(voteBadgeNFTAddress);
-      console.log("VoteBadgeNFT address set in Voting contract");
-      
-      // Also update the VoteBadgeNFT contract to point to this Voting contract
-      const VoteBadgeNFT = await hre.ethers.getContractFactory("VoteBadgeNFT");
-      const nft = await VoteBadgeNFT.attach(voteBadgeNFTAddress);
-      await nft.setVotingContract(voting.address);
-      console.log("Voting contract address set in VoteBadgeNFT");
+    const ownerAddress = process.env.VITE_OWNER_ADDRESS;
+    
+    // Check if the current signer is the owner
+    const currentSigner = await deployer.getAddress();
+    if (currentSigner.toLowerCase() !== ownerAddress.toLowerCase()) {
+      console.log(`Current signer (${currentSigner}) is not the owner (${ownerAddress}).`);
+      console.log('Please run the deployment with the owner account or update the VITE_OWNER_ADDRESS in .env');
+      console.log('Skipping VoteBadgeNFT setup...');
+    } else if (voteBadgeNFTAddress) {
+      try {
+        console.log("Setting VoteBadgeNFT address in Voting contract...");
+        const tx = await voting.setVoteBadgeNFT(voteBadgeNFTAddress);
+        await tx.wait();
+        console.log("VoteBadgeNFT address set in Voting contract");
+        
+        // Also update the VoteBadgeNFT contract to point to this Voting contract
+        const VoteBadgeNFT = await hre.ethers.getContractFactory("VoteBadgeNFT");
+        const nft = await VoteBadgeNFT.attach(voteBadgeNFTAddress);
+        const tx2 = await nft.setVotingContract(voting.address);
+        await tx2.wait();
+        console.log("Voting contract address set in VoteBadgeNFT");
+      } catch (error) {
+        console.error("Error setting up VoteBadgeNFT:", error.message);
+        console.log("Please set up the VoteBadgeNFT address manually after deployment");
+      }
     } else {
       console.log("VoteBadgeNFT not deployed yet. Please set it later with setVoteBadgeNFT()");
     }
